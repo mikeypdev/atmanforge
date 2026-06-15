@@ -70,6 +70,26 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Background Removal") {
+                    Picker("Method", selection: Binding(
+                        get: { appState.backgroundRemovalMethod },
+                        set: { appState.backgroundRemovalMethod = $0 }
+                    )) {
+                        ForEach(BackgroundRemovalMethod.allCases, id: \.self) { method in
+                            Text(method.displayName).tag(method)
+                        }
+                    }
+                    if appState.backgroundRemovalMethod == .vision {
+                        Text("Runs entirely on-device using Apple's Vision framework. No API key required.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Uses the Replicate API. Requires a Replicate API key and a network connection.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Thumbnails") {
                     Picker("Max size", selection: Binding(
                         get: { appState.thumbnailMaxPixelSize },

@@ -1,5 +1,20 @@
 import SwiftUI
 import UserNotifications
+import Vision
+import CoreImage
+import CoreImage.CIFilterBuiltins
+
+enum BackgroundRemovalMethod: String, CaseIterable {
+    case vision
+    case replicate
+
+    var displayName: String {
+        switch self {
+        case .vision: return "On-device (Vision)"
+        case .replicate: return "Replicate API"
+        }
+    }
+}
 
 enum CenterTab: String, CaseIterable {
     case activity
@@ -77,6 +92,14 @@ class AppState {
 
     // MARK: - App Settings
     var hasAPIKey: Bool = false
+
+    var backgroundRemovalMethod: BackgroundRemovalMethod {
+        get {
+            let raw = UserDefaults.standard.string(forKey: "backgroundRemovalMethod") ?? BackgroundRemovalMethod.vision.rawValue
+            return BackgroundRemovalMethod(rawValue: raw) ?? .vision
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "backgroundRemovalMethod") }
+    }
 
     var parallelRequestDelay: TimeInterval {
         get { UserDefaults.standard.object(forKey: "parallelRequestDelay") as? TimeInterval ?? 5.0 }
@@ -413,6 +436,63 @@ class AppState {
         CGImageDestinationAddImage(pngDest, compositedCG, nil)
         guard CGImageDestinationFinalize(pngDest) else { return nil }
         return pngData as Data
+    }
+
+    /// Removes the background from an image using on-device Vision framework.
+    /// Works at full resolution — no downsampling or network call required.
+    private static func removeBackgroundWithVision(_ imageData: Data) async throws -> Data {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw BackgroundRemovalError.invalidImage
+        }
+
+        let inputCI = CIImage(cgImage: cgImage)
+        let request = VNGenerateForegroundInstanceMaskRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        try handler.perform([request])
+
+        guard let observation = request.results?.first as? VNInstanceMaskObservation else {
+            throw BackgroundRemovalError.noResult
+        }
+
+        let maskBuffer: CVImageBuffer = try observation.generateScaledMaskForImage(
+            forInstances: observation.allInstances,
+            from: handler
+        )
+        let maskCI = CIImage(cvPixelBuffer: maskBuffer)
+
+        let filter = CIFilter.blendWithMask()
+        filter.inputImage = inputCI
+        filter.maskImage = maskCI
+        filter.backgroundImage = CIImage.empty()
+
+        guard let outputCI = filter.outputImage else {
+            throw BackgroundRemovalError.encodingFailed
+        }
+
+        let ciContext = CIContext()
+        let colorSpace = outputCI.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let pngData = ciContext.pngRepresentation(of: outputCI, format: .RGBA8, colorSpace: colorSpace) else {
+            throw BackgroundRemovalError.encodingFailed
+        }
+
+        return pngData
+    }
+
+    enum BackgroundRemovalError: LocalizedError {
+        case invalidImage
+        case noResult
+        case unexpectedResult
+        case encodingFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidImage: return "Could not read the image file."
+            case .noResult: return "Background removal produced no output."
+            case .unexpectedResult: return "Unexpected result type from Vision framework."
+            case .encodingFailed: return "Failed to encode the result image."
+            }
+        }
     }
 
     // MARK: - Image Inspector
@@ -995,13 +1075,20 @@ class AppState {
     func removeBackground(job: GenerationJob, imageIndex: Int) {
         guard let projectRoot = projectManager.projectsRootURL else { return }
         guard imageIndex < job.savedImagePaths.count else { return }
-        guard let apiKey = KeychainManager.load(key: "replicate_api_key"), !apiKey.isEmpty else {
-            errorMessage = "No Replicate API key configured. Add it in Settings."
-            return
-        }
-        guard let bgModel = ModelRegistry.shared.backgroundRemovalModel else {
-            errorMessage = "No background removal model defined."
-            return
+
+        let method = backgroundRemovalMethod
+
+        let bgModel = ModelRegistry.shared.backgroundRemovalModel
+
+        if method == .replicate {
+            guard let apiKey = KeychainManager.load(key: "replicate_api_key"), !apiKey.isEmpty else {
+                errorMessage = "No Replicate API key configured. Add it in Settings or switch to on-device background removal."
+                return
+            }
+            guard let bgModel else {
+                errorMessage = "No background removal model defined."
+                return
+            }
         }
 
         let imagePath = job.savedImagePaths[imageIndex]
@@ -1013,8 +1100,10 @@ class AppState {
 
         let refResult = projectManager.saveReferenceImages([imageData], toFolder: projectRoot)
 
+        let modelID = bgModel?.id ?? "remove-background"
+
         let bgJob = GenerationJob(
-            modelID: bgModel.id,
+            modelID: modelID,
             prompt: "",
             projectID: projectRoot.lastPathComponent,
             aspectRatio: job.aspectRatio,
@@ -1031,31 +1120,36 @@ class AppState {
         isRemovingBackground = true
         statusMessage = "Removing background..."
 
-        let provider = ReplicateProvider(apiKey: apiKey)
-
         Task {
             do {
-                let downscaleInfo = Self.downscaleForBackgroundRemoval(imageData)
-                let apiInput = downscaleInfo?.downscaled ?? imageData
-
-                let resultData = try await provider.removeBackground(imageData: apiInput, model: bgModel)
-
                 let finalData: Data
-                if let info = downscaleInfo,
-                   let composited = Self.extractAndApplyMask(
-                       resultData: resultData,
-                       originalData: imageData,
-                       originalWidth: info.originalWidth,
-                       originalHeight: info.originalHeight
-                   ) {
-                    finalData = composited
-                } else {
-                    finalData = resultData
+                switch method {
+                case .vision:
+                    finalData = try await Self.removeBackgroundWithVision(imageData)
+                case .replicate:
+                    guard let apiKey = KeychainManager.load(key: "replicate_api_key"), !apiKey.isEmpty else {
+                        throw BackgroundRemovalError.invalidImage
+                    }
+                    let provider = ReplicateProvider(apiKey: apiKey)
+                    let downscaleInfo = Self.downscaleForBackgroundRemoval(imageData)
+                    let apiInput = downscaleInfo?.downscaled ?? imageData
+                    let resultData = try await provider.removeBackground(imageData: apiInput, model: bgModel!)
+                    if let info = downscaleInfo,
+                       let composited = Self.extractAndApplyMask(
+                           resultData: resultData,
+                           originalData: imageData,
+                           originalWidth: info.originalWidth,
+                           originalHeight: info.originalHeight
+                       ) {
+                        finalData = composited
+                    } else {
+                        finalData = resultData
+                    }
                 }
 
                 let meta = ImageMeta(
                     prompt: bgJob.prompt,
-                    modelID: bgModel.id,
+                    modelID: modelID,
                     aspectRatio: bgJob.aspectRatio,
                     resolution: nil,
                     imageCount: 1,
