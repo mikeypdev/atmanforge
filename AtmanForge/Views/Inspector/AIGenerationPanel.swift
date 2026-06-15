@@ -20,7 +20,7 @@ struct AIGenerationPanel: View {
         @Bindable var appState = appState
 
         VStack(alignment: .leading, spacing: 12) {
-            if !appState.hasAPIKey {
+            if appState.selectedModel.map({ !appState.hasKeyForProvider($0.provider) }) ?? !appState.hasAPIKey {
                 APIKeyBanner(appState: appState)
             }
 
@@ -37,6 +37,15 @@ struct AIGenerationPanel: View {
                         HStack {
                             Text(model.displayName)
                                 .fontWeight(isSelected ? .semibold : .regular)
+                            if model.isOpenRouter {
+                                Text("OR")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.purple.opacity(0.15))
+                                    .foregroundStyle(Color.purple)
+                                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                            }
                             Spacer()
                             if isSelected {
                                 Image(systemName: "checkmark")
@@ -510,6 +519,11 @@ struct AIGenerationPanel: View {
 private struct APIKeyBanner: View {
     let appState: AppState
 
+    private var providerName: String {
+        if let model = appState.selectedModel, model.isOpenRouter { return "OpenRouter" }
+        return "Replicate"
+    }
+
     var body: some View {
         Button {
             appState.showSettings = true
@@ -517,7 +531,7 @@ private struct APIKeyBanner: View {
             HStack(spacing: 6) {
                 Image(systemName: "key")
                     .font(.caption)
-                Text("API key not set")
+                Text("\(providerName) API key not set")
                     .font(.caption)
                 Spacer()
                 Text("Settings")

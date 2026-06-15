@@ -79,6 +79,7 @@ struct ModelDefinition: Codable, Identifiable, Hashable {
     let id: String
     let displayName: String
     let kind: ModelKind
+    let provider: String
     let replicateModelID: String
     let aspectRatios: [AspectRatio]
     let resolutions: [ImageResolution]
@@ -89,8 +90,36 @@ struct ModelDefinition: Codable, Identifiable, Hashable {
     let staticInputs: [String: ParameterValue]
     let parameters: [ParameterSpec]
 
+    /// Which provider owns this model. Defaults to "replicate" for backward compatibility.
+    var isReplicate: Bool { provider == "replicate" }
+    var isOpenRouter: Bool { provider == "openrouter" }
+
     var supportsResolution: Bool { !resolutions.isEmpty }
     var supportsNativeImageCount: Bool { nativeBatchKey != nil }
+
+    enum CodingKeys: String, CodingKey {
+        case id, displayName, kind, provider
+        case replicateModelID
+        case aspectRatios, resolutions, maxImages, nativeBatchKey
+        case maxReferenceImages, referenceKey, staticInputs, parameters
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        kind = try c.decode(ModelKind.self, forKey: .kind)
+        provider = try c.decodeIfPresent(String.self, forKey: .provider) ?? "replicate"
+        replicateModelID = try c.decode(String.self, forKey: .replicateModelID)
+        aspectRatios = try c.decode([AspectRatio].self, forKey: .aspectRatios)
+        resolutions = try c.decode([ImageResolution].self, forKey: .resolutions)
+        maxImages = try c.decode(Int.self, forKey: .maxImages)
+        nativeBatchKey = try c.decodeIfPresent(String.self, forKey: .nativeBatchKey)
+        maxReferenceImages = try c.decode(Int.self, forKey: .maxReferenceImages)
+        referenceKey = try c.decodeIfPresent(ReferenceKeySpec.self, forKey: .referenceKey)
+        staticInputs = try c.decode([String: ParameterValue].self, forKey: .staticInputs)
+        parameters = try c.decode([ParameterSpec].self, forKey: .parameters)
+    }
 
     static func == (lhs: ModelDefinition, rhs: ModelDefinition) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

@@ -77,6 +77,8 @@ class AppState {
 
     // MARK: - App Settings
     var hasAPIKey: Bool = false
+    var hasReplicateKey: Bool = false
+    var hasOpenRouterKey: Bool = false
 
     var parallelRequestDelay: TimeInterval {
         get { UserDefaults.standard.object(forKey: "parallelRequestDelay") as? TimeInterval ?? 5.0 }
@@ -141,8 +143,29 @@ class AppState {
     }
 
     func refreshAPIKeyStatus() {
-        let key = KeychainManager.load(key: "replicate_api_key")
-        hasAPIKey = key != nil && !key!.isEmpty
+        let repKey = KeychainManager.load(key: "replicate_api_key")
+        let orKey = KeychainManager.load(key: "openrouter_api_key")
+        hasReplicateKey = repKey != nil && !repKey!.isEmpty
+        hasOpenRouterKey = orKey != nil && !orKey!.isEmpty
+        hasAPIKey = hasReplicateKey || hasOpenRouterKey
+    }
+
+    func hasKeyForProvider(_ provider: String) -> Bool {
+        switch provider {
+        case "openrouter": return hasOpenRouterKey
+        default: return hasReplicateKey
+        }
+    }
+
+    func makeProvider(for model: ModelDefinition) -> AIProvider? {
+        switch model.provider {
+        case "openrouter":
+            guard let key = KeychainManager.load(key: "openrouter_api_key"), !key.isEmpty else { return nil }
+            return OpenRouterProvider(apiKey: key)
+        default:
+            guard let key = KeychainManager.load(key: "replicate_api_key"), !key.isEmpty else { return nil }
+            return ReplicateProvider(apiKey: key)
+        }
     }
 
     var selectedProject: Project? {
@@ -845,8 +868,9 @@ class AppState {
             return
         }
 
-        guard let apiKey = KeychainManager.load(key: "replicate_api_key"), !apiKey.isEmpty else {
-            errorMessage = "No Replicate API key configured. Add it in Settings."
+        guard let provider = makeProvider(for: model) else {
+            let providerName = model.isOpenRouter ? "OpenRouter" : "Replicate"
+            errorMessage = "No \(providerName) API key configured. Add it in Settings."
             statusMessage = "API key missing."
             return
         }
@@ -886,8 +910,6 @@ class AppState {
             referenceImages: referenceImages,
             parameters: parameters
         )
-
-        let provider = ReplicateProvider(apiKey: apiKey)
 
         Task {
             do {
@@ -987,6 +1009,8 @@ class AppState {
 
         Task.detached {
             for url in cancelURLs {
+                // Only non-empty cancel URLs are Replicate predictions
+                guard !url.isEmpty else { continue }
                 try? await provider.cancelPrediction(url: url)
             }
         }
@@ -996,7 +1020,7 @@ class AppState {
         guard let projectRoot = projectManager.projectsRootURL else { return }
         guard imageIndex < job.savedImagePaths.count else { return }
         guard let apiKey = KeychainManager.load(key: "replicate_api_key"), !apiKey.isEmpty else {
-            errorMessage = "No Replicate API key configured. Add it in Settings."
+            errorMessage = "No Replicate API key configured. Background removal requires Replicate. Add it in Settings."
             return
         }
         guard let bgModel = ModelRegistry.shared.backgroundRemovalModel else {
