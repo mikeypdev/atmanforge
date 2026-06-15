@@ -171,6 +171,87 @@
       "referenceKey": { "name": "image", "kind": "single" },
       "staticInputs": { "content_moderation": false, "preserve_alpha": true },
       "parameters": []
+    },
+    {
+      "id": "or-gemini-2.5-flash",
+      "displayName": "Gemini 2.5 Flash",
+      "kind": "generation",
+      "provider": "openrouter",
+      "replicateModelID": "google/gemini-2.5-flash-image",
+      "aspectRatios": ["9:16", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9"],
+      "resolutions": [],
+      "maxImages": 4,
+      "nativeBatchKey": null,
+      "maxReferenceImages": 6,
+      "referenceKey": { "name": "image_input", "kind": "array" },
+      "staticInputs": {},
+      "parameters": []
+    },
+    {
+      "id": "or-gemini-3.1-flash",
+      "displayName": "Gemini 3.1 Flash",
+      "kind": "generation",
+      "provider": "openrouter",
+      "replicateModelID": "google/gemini-3.1-flash-image-preview",
+      "aspectRatios": ["1:8", "1:4", "9:16", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9", "4:1", "8:1"],
+      "resolutions": ["1K", "2K", "4K"],
+      "maxImages": 4,
+      "nativeBatchKey": null,
+      "maxReferenceImages": 14,
+      "referenceKey": { "name": "image_input", "kind": "array" },
+      "staticInputs": {},
+      "parameters": []
+    },
+    {
+      "id": "or-flux-2-pro",
+      "displayName": "FLUX.2 Pro",
+      "kind": "generation",
+      "provider": "openrouter",
+      "replicateModelID": "black-forest-labs/flux.2-pro",
+      "aspectRatios": ["9:16", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9"],
+      "resolutions": [],
+      "maxImages": 4,
+      "nativeBatchKey": null,
+      "maxReferenceImages": 1,
+      "referenceKey": { "name": "image", "kind": "single" },
+      "staticInputs": {},
+      "parameters": [
+        { "key": "strength", "label": "Prompt Strength", "control": "slider",
+          "min": 0, "max": 1, "step": 0.05, "default": 0.5 }
+      ]
+    },
+    {
+      "id": "or-flux-2-flex",
+      "displayName": "FLUX.2 Flex",
+      "kind": "generation",
+      "provider": "openrouter",
+      "replicateModelID": "black-forest-labs/flux.2-flex",
+      "aspectRatios": ["9:16", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9"],
+      "resolutions": [],
+      "maxImages": 4,
+      "nativeBatchKey": null,
+      "maxReferenceImages": 1,
+      "referenceKey": { "name": "image", "kind": "single" },
+      "staticInputs": {},
+      "parameters": []
+    },
+    {
+      "id": "or-recraft-v4-pro",
+      "displayName": "Recraft V4 Pro",
+      "kind": "generation",
+      "provider": "openrouter",
+      "replicateModelID": "recraft/recraft-v4-pro",
+      "aspectRatios": ["9:16", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9"],
+      "resolutions": [],
+      "maxImages": 4,
+      "nativeBatchKey": null,
+      "maxReferenceImages": 1,
+      "referenceKey": { "name": "image", "kind": "single" },
+      "staticInputs": {},
+      "parameters": [
+        { "key": "strength", "label": "Prompt Strength", "control": "slider",
+          "min": 0, "max": 1, "step": 0.05, "default": 0.5 }
+      ]
     }
   ]
 }

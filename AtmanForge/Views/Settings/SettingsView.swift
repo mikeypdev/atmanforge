@@ -4,9 +4,12 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var replicateKey: String = ""
-    @State private var savedKey: String = ""
+    @State private var savedReplicateKey: String = ""
+    @State private var showReplicateSaveConfirmation = false
+    @State private var openRouterKey: String = ""
+    @State private var savedOpenRouterKey: String = ""
+    @State private var showOpenRouterSaveConfirmation = false
     @State private var rootFolderPath: String = ""
-    @State private var showSaveConfirmation = false
     @State private var showRevertConfirmation = false
 
     var body: some View {
@@ -23,19 +26,19 @@ struct SettingsView: View {
             Divider()
 
             Form {
-                Section("API Keys") {
+                Section("Replicate API Key") {
                     SecureField("Replicate API Key", text: $replicateKey)
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: replicateKey) {
-                            showSaveConfirmation = false
+                            showReplicateSaveConfirmation = false
                         }
 
-                    if replicateKey != savedKey {
-                        Button("Save API Key") {
+                    if replicateKey != savedReplicateKey {
+                        Button("Save Replicate Key") {
                             do {
                                 try KeychainManager.save(key: "replicate_api_key", value: replicateKey)
-                                savedKey = replicateKey
-                                showSaveConfirmation = true
+                                savedReplicateKey = replicateKey
+                                showReplicateSaveConfirmation = true
                                 appState.refreshAPIKeyStatus()
                             } catch {
                                 appState.statusMessage = "Failed to save API key: \(error.localizedDescription)"
@@ -44,9 +47,47 @@ struct SettingsView: View {
                         .disabled(replicateKey.isEmpty)
                     }
 
-                    if showSaveConfirmation {
+                    if showReplicateSaveConfirmation {
                         Text("API key saved.")
                             .foregroundStyle(.green)
+                            .font(.caption)
+                    }
+
+                    if savedReplicateKey.isEmpty {
+                        Link("Get a Replicate API key →", destination: URL(string: "https://replicate.com/account/api-tokens")!)
+                            .font(.caption)
+                    }
+                }
+
+                Section("OpenRouter API Key") {
+                    SecureField("OpenRouter API Key", text: $openRouterKey)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: openRouterKey) {
+                            showOpenRouterSaveConfirmation = false
+                        }
+
+                    if openRouterKey != savedOpenRouterKey {
+                        Button("Save OpenRouter Key") {
+                            do {
+                                try KeychainManager.save(key: "openrouter_api_key", value: openRouterKey)
+                                savedOpenRouterKey = openRouterKey
+                                showOpenRouterSaveConfirmation = true
+                                appState.refreshAPIKeyStatus()
+                            } catch {
+                                appState.statusMessage = "Failed to save API key: \(error.localizedDescription)"
+                            }
+                        }
+                        .disabled(openRouterKey.isEmpty)
+                    }
+
+                    if showOpenRouterSaveConfirmation {
+                        Text("API key saved.")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                    }
+
+                    if savedOpenRouterKey.isEmpty {
+                        Link("Get an OpenRouter API key →", destination: URL(string: "https://openrouter.ai/keys")!)
                             .font(.caption)
                     }
                 }
@@ -89,7 +130,7 @@ struct SettingsView: View {
 
                 Section("Models") {
                     ForEach(ModelRegistry.shared.generationModels, id: \.id) { model in
-                        Toggle(model.displayName, isOn: Binding(
+                        Toggle(isOn: Binding(
                             get: { !appState.hiddenModels.contains(model.id) },
                             set: { visible in
                                 if visible {
@@ -103,7 +144,20 @@ struct SettingsView: View {
                                     }
                                 }
                             }
-                        ))
+                        )) {
+                            HStack(spacing: 6) {
+                                Text(model.displayName)
+                                if model.isOpenRouter {
+                                    Text("OpenRouter")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(Color.purple.opacity(0.15))
+                                        .foregroundStyle(Color.purple)
+                                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -166,9 +220,12 @@ struct SettingsView: View {
         }
         .frame(width: 620, height: 600)
         .onAppear {
-            let loaded = KeychainManager.load(key: "replicate_api_key") ?? ""
-            replicateKey = loaded
-            savedKey = loaded
+            let repKey = KeychainManager.load(key: "replicate_api_key") ?? ""
+            replicateKey = repKey
+            savedReplicateKey = repKey
+            let orKey = KeychainManager.load(key: "openrouter_api_key") ?? ""
+            openRouterKey = orKey
+            savedOpenRouterKey = orKey
             rootFolderPath = appState.projectManager.projectsRootURL?.path ?? ""
         }
         .confirmationDialog(
