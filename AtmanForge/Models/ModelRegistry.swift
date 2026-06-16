@@ -89,8 +89,10 @@ struct ModelDefinition: Codable, Identifiable, Hashable {
     let referenceKey: ReferenceKeySpec?
     let staticInputs: [String: ParameterValue]
     let parameters: [ParameterSpec]
+    let apiType: String
 
     /// Which provider owns this model. Defaults to "replicate" for backward compatibility.
+    var usesImagesEndpoint: Bool { apiType == "images" }
     var isReplicate: Bool { provider == "replicate" }
     var isOpenRouter: Bool { provider == "openrouter" }
 
@@ -102,6 +104,7 @@ struct ModelDefinition: Codable, Identifiable, Hashable {
         case replicateModelID
         case aspectRatios, resolutions, maxImages, nativeBatchKey
         case maxReferenceImages, referenceKey, staticInputs, parameters
+        case apiType
     }
 
     init(from decoder: Decoder) throws {
@@ -119,6 +122,7 @@ struct ModelDefinition: Codable, Identifiable, Hashable {
         referenceKey = try c.decodeIfPresent(ReferenceKeySpec.self, forKey: .referenceKey)
         staticInputs = try c.decode([String: ParameterValue].self, forKey: .staticInputs)
         parameters = try c.decode([ParameterSpec].self, forKey: .parameters)
+        apiType = try c.decodeIfPresent(String.self, forKey: .apiType) ?? "chat"
     }
 
     static func == (lhs: ModelDefinition, rhs: ModelDefinition) -> Bool { lhs.id == rhs.id }
