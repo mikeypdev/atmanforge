@@ -4,7 +4,6 @@ class OpenRouterProvider: AIProvider {
     private let apiKey: String
     private let session = URLSession.shared
     private let baseURL = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
-    private let imagesBaseURL = URL(string: "https://openrouter.ai/api/v1/images/generations")!
 
     init(apiKey: String) {
         self.apiKey = apiKey
@@ -60,9 +59,6 @@ class OpenRouterProvider: AIProvider {
     // MARK: - Single request
 
     private func generateSingle(request: GenerationRequest) async throws -> [Data] {
-        if request.model.usesImagesEndpoint {
-            return try await generateSingleImages(request: request)
-        }
         let body = try buildRequestBody(for: request)
 
         var urlRequest = URLRequest(url: baseURL)
@@ -93,85 +89,6 @@ class OpenRouterProvider: AIProvider {
         }
 
         return images
-    }
-
-    // MARK: - Images endpoint (FLUX, Recraft, etc.)
-
-    private func generateSingleImages(request: GenerationRequest) async throws -> [Data] {
-        let body = try buildImagesRequestBody(for: request)
-
-        var urlRequest = URLRequest(url: imagesBaseURL)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("AtmanForge", forHTTPHeaderField: "X-Title")
-        urlRequest.httpBody = body
-        urlRequest.timeoutInterval = 300
-
-        let (data, response) = try await session.data(for: urlRequest)
-        try validateResponse(response, data: data)
-
-        let result = try JSONDecoder().decode(ImagesResponse.self, from: data)
-
-        let images: [Data] = result.data.compactMap { item in
-            if let b64 = item.b64_json, let imgData = Data(base64Encoded: b64) {
-                return imgData
-            }
-            if let urlString = item.url, let url = URL(string: urlString) {
-                return try? Data(contentsOf: url)
-            }
-            return nil
-        }
-
-        if images.isEmpty {
-            throw OpenRouterError.noOutput
-        }
-
-        return images
-    }
-
-    private func buildImagesRequestBody(for request: GenerationRequest) throws -> Data {
-        var body: [String: Any] = [
-            "model": request.model.replicateModelID,
-            "prompt": request.prompt,
-            "n": 1,
-            "response_format": "b64_json",
-        ]
-
-        // Build image_config from aspect ratio, resolution, and model parameters
-        var imageConfig: [String: Any] = [:]
-        imageConfig["aspect_ratio"] = request.aspectRatio.rawValue
-
-        if request.model.supportsResolution, let resolution = request.resolution {
-            imageConfig["image_size"] = resolution.rawValue
-        }
-
-        for (key, value) in request.model.staticInputs {
-            imageConfig[key] = value.jsonObject
-        }
-        for (key, value) in request.parameters {
-            imageConfig[key] = value.jsonObject
-        }
-
-        if !imageConfig.isEmpty {
-            body["image_config"] = imageConfig
-        }
-
-        // Include reference images if supported (e.g. FLUX img2img)
-        if !request.referenceImages.isEmpty {
-            let refKey = request.model.referenceKey?.name ?? "image"
-            if request.model.referenceKey?.kind == .array {
-                body[refKey] = request.referenceImages.map { img in
-                    "data:image/png;base64,\(img.base64EncodedString())"
-                }
-            } else {
-                if let first = request.referenceImages.first {
-                    body[refKey] = "data:image/png;base64,\(first.base64EncodedString())"
-                }
-            }
-        }
-
-        return try JSONSerialization.data(withJSONObject: body)
     }
 
     // MARK: - Request building
@@ -307,15 +224,4 @@ private struct ChatImage: Decodable {
 
 private struct ImageURL: Decodable {
     let url: String
-}
-
-// MARK: - Images Endpoint Response
-
-private struct ImagesResponse: Decodable {
-    let data: [ImageDataItem]
-}
-
-private struct ImageDataItem: Decodable {
-    let b64_json: String?
-    let url: String?
 }
