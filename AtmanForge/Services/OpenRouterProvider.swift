@@ -116,9 +116,15 @@ class OpenRouterProvider: AIProvider {
             "messages": [
                 ["role": "user", "content": content]
             ],
-            "modalities": ["image", "text"],
             "stream": false,
         ]
+
+        // Use model-specific modalities or default to ["image", "text"]
+        if let modalities = request.model.modalities {
+            body["modalities"] = modalities
+        } else {
+            body["modalities"] = ["image", "text"]
+        }
 
         // Build image_config from aspect ratio, resolution, and model parameters
         var imageConfig: [String: Any] = [:]
@@ -159,10 +165,11 @@ class OpenRouterProvider: AIProvider {
     }
 
     private func buildParamsDebugJSON(for request: GenerationRequest) -> String? {
+        let modalities = request.model.modalities ?? ["image", "text"]
         let debugInfo: [String: Any] = [
             "model": request.model.replicateModelID,
             "aspect_ratio": request.aspectRatio.rawValue,
-            "modalities": ["image", "text"],
+            "modalities": modalities,
         ]
         guard JSONSerialization.isValidJSONObject(debugInfo) else { return nil }
         guard let data = try? JSONSerialization.data(withJSONObject: debugInfo, options: [.prettyPrinted]),
