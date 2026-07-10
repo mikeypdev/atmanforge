@@ -1,0 +1,14 @@
+{
+  "aspectRatio" : "3:2",
+  "model" : "or-gemini-3.1-flash",
+  "imageCount" : 1,
+  "resolution" : "1K",
+  "createdAt" : "2026-06-20T01:07:43Z",
+  "parameters" : {
+
+  },
+  "referenceHashes" : [
+    "a4ab6b525e3b4fc9e30e96902be855b36a86d6d4eb22afc544fcd379b50b660b"
+  ],
+  "prompt" : "update aspect ratio to fill 3:2 space"
+}

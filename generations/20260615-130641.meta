@@ -1,0 +1,13 @@
+{
+  "createdAt" : "2026-06-15T20:06:41Z",
+  "imageCount" : 1,
+  "parameters" : {
+
+  },
+  "model" : "or-gemini-2.5-flash",
+  "referenceHashes" : [
+
+  ],
+  "prompt" : "Top-down fantasy world map rendered as a smooth watercolor wash. No texture, no noise, no fine detail, no outlines — only broad soft gradients of color flowing into each other. 4:3 aspect ratio, 400×300.\nSpatial layout bottom to top:\n* Bottom center: warm grasslands — soft green (#7BA05B) blending with soft yellow (#D4C78A), the largest and brightest region\n* Mid-left: deep forest — dark green (#3B5E2B) with dark brown (#4A3728)\n* Mid-right: murky swamp — olive (#5A6B3C) with brown (#4A3F2F)\n* Center band: warm desert — sand (#D4B483) and pale ochre (#E8D5A8)\n* Bottom edges and coastline: water — blue-green (#2A6B7C) into deep blue (#1A3D5C)\n* Upper region: slate grey mountains (#6B7B8D) into charcoal (#3D3D3D)\n* Top: cold snow — pale ice blue (#C8DDE8) and white (#E8EFF2)\nAll biome boundaries blend smoothly with wide gradient transitions — no hard edges, no sharp color changes\nThe overall feel is atmospheric, dreamlike, like looking at a fantasy kingdom from high above through soft mist. Flat 2D top-down view, no perspective, no 3D, no lighting effects.",
+  "aspectRatio" : "4:3"
+}

@@ -1,0 +1,13 @@
+{
+  "parameters" : {
+
+  },
+  "model" : "or-gemini-2.5-flash",
+  "imageCount" : 1,
+  "prompt" : "create hexagonal UI badge with a chess board pattern, with the chess board having 3 tiles across and 3 high",
+  "aspectRatio" : "1:1",
+  "referenceHashes" : [
+    "c275ad0cbe59fa1c35dded63eef59dacfdb5adb17887fb5e80453d051f481024"
+  ],
+  "createdAt" : "2026-06-30T19:32:25Z"
+}

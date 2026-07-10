@@ -1,0 +1,13 @@
+{
+  "model" : "or-gemini-2.5-flash",
+  "referenceHashes" : [
+
+  ],
+  "aspectRatio" : "1:1",
+  "prompt" : "Top-down painted illustration of a windswept desert sand surface, 512×512, square.\n\nArt style: digital painting emulating traditional oil and watercolor techniques, matching a whimsical\nfantasy storybook aesthetic. Soft, diffused lighting with no harsh shadows. Slightly desaturated, harmonious\npalette with subtle canvas grain. Painterly brushwork — smooth, flowing strokes suggesting wind-shaped sand,\ngentler blending than other biomes. Hot, bright, sweeping mood. No outlines, no hard edges, no pixel art, no\nphotorealism.\n\nSubject: open desert terrain seen directly from above. Warm sand (#D4B483) as the dominant tone, with pale\nochre (#E8D5A8) highlights and slightly deeper amber in hollows. Smooth, windswept surface with gentle dune\nripples and soft undulations suggesting wind movement across the sand. Subtle texture variation between\nfiner grain flats and slightly rougher raised areas. Minimal fine detail; read as an impression of vast sun-\nbaked sand rather than a precise geological survey.\n\nEdges: fade smoothly to full transparency at all borders with a soft, irregular gradient. Organic, amorphous\nshape — no rectangular edge.\n\nBackground: fully transparent (alpha channel). No sky, no horizon, no perspective depth, no rocks, no\nvegetation, no dunes with shadows — just flat sand surface.",
+  "createdAt" : "2026-06-15T20:51:13Z",
+  "parameters" : {
+
+  },
+  "imageCount" : 1
+}

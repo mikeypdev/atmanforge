@@ -1,0 +1,14 @@
+{
+  "resolution" : "2K",
+  "aspectRatio" : "4:3",
+  "model" : "or-gemini-3.1-flash",
+  "referenceHashes" : [
+    "08f9b0013d4e9146d9e915b0d0e6a7b161977b428aee07a401f7fe3c4d80880c"
+  ],
+  "createdAt" : "2026-06-16T04:33:05Z",
+  "prompt" : "let’s double the density of this map, as if we are viewing the map 4X further away",
+  "parameters" : {
+
+  },
+  "imageCount" : 1
+}

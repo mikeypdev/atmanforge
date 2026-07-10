@@ -1,0 +1,13 @@
+{
+  "prompt" : "Top-down painted illustration of a rocky mountain surface, 512×512, square.\n\nArt style: digital painting emulating traditional oil and watercolor techniques, matching a whimsical\nfantasy storybook aesthetic. Soft, diffused lighting with no harsh shadows. Slightly desaturated, harmonious\npalette with subtle canvas grain. Painterly brushwork — angular, textured strokes for rock faces, smoother\nblending in shadowed crevices. Cool, imposing, dramatic mood. No outlines, no hard edges, no pixel art, no\nphotorealism.\n\nSubject: rugged mountain terrain seen directly from above. Slate grey (#6B7B8D) as the dominant tone, with\ncharcoal (#3D3D3D) shadow areas and occasional slate blue highlights. Angular rock formations, cracked stone\nsurfaces, and exposed cliff faces suggesting a harsh elevated landscape. Broad craggy textures with natural\nfractures and ridgelines running through the stone. Subtle variation between smoother worn rock and rougher\njagged areas. Minimal fine detail; read as an impression of imposing mountainous terrain rather than\ngeological precision.\n\nEdges: fade smoothly to full transparency at all borders with a soft, irregular gradient. Organic, amorphous\nshape — no rectangular edge.\n\nBackground: fully transparent (alpha channel). No sky, no horizon, no perspective depth, no snow, no\nvegetation — just rocky mountain surface.",
+  "createdAt" : "2026-06-15T20:48:58Z",
+  "referenceHashes" : [
+
+  ],
+  "imageCount" : 1,
+  "aspectRatio" : "1:1",
+  "parameters" : {
+
+  },
+  "model" : "or-gemini-2.5-flash"
+}

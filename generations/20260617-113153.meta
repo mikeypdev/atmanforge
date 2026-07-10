@@ -1,0 +1,13 @@
+{
+  "referenceHashes" : [
+
+  ],
+  "createdAt" : "2026-06-17T18:31:53Z",
+  "aspectRatio" : "1:1",
+  "parameters" : {
+
+  },
+  "imageCount" : 1,
+  "model" : "or-gemini-2.5-flash",
+  "prompt" : "top-down view of a blank old parchment map. not photorealistic, slightly animated look"
+}

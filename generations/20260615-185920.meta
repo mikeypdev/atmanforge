@@ -1,0 +1,13 @@
+{
+  "model" : "or-gemini-2.5-flash",
+  "prompt" : "dense clusters of logs, fallen trees, branches, and bramble",
+  "createdAt" : "2026-06-16T01:59:20Z",
+  "referenceHashes" : [
+    "45298d9d578ee875a532df243ac6eea048dcef6eda45c6f7bde25bffa183c318"
+  ],
+  "aspectRatio" : "1:1",
+  "imageCount" : 1,
+  "parameters" : {
+
+  }
+}

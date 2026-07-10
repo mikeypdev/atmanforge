@@ -1,0 +1,13 @@
+{
+  "aspectRatio" : "1:1",
+  "createdAt" : "2026-06-16T02:45:56Z",
+  "referenceHashes" : [
+    "5fe55a3bdf4b6ff175b0806606e7a4d41d0860ce1a5c43e57985f5cf37843169"
+  ],
+  "parameters" : {
+
+  },
+  "imageCount" : 1,
+  "prompt" : "top down view of a snowy meadow, no horizon, no river",
+  "model" : "or-gemini-2.5-flash"
+}

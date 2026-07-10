@@ -1,0 +1,13 @@
+{
+  "prompt" : "remove logs, rocks, trees, flowers",
+  "referenceHashes" : [
+    "45298d9d578ee875a532df243ac6eea048dcef6eda45c6f7bde25bffa183c318"
+  ],
+  "parameters" : {
+
+  },
+  "aspectRatio" : "1:1",
+  "model" : "or-gemini-2.5-flash",
+  "imageCount" : 1,
+  "createdAt" : "2026-06-16T00:59:21Z"
+}

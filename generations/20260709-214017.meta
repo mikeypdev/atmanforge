@@ -1,0 +1,15 @@
+{
+  "parameters" : {
+    "background" : "auto",
+    "input_fidelity" : "high",
+    "quality" : "medium"
+  },
+  "prompt" : "This is a logo sketch for a character named Automachan (オートマちゃん). He is a friendly giant robot, a bit cute, obviously a little inspired by Iron Giant, but not a weapon or military machine. Automachan loves play. The name Automachan is a play on “automaton” and the Japanese suffix “-chan” for “cute” or “kid”. Create a contact sheet with 4 color variants.",
+  "referenceHashes" : [
+    "5d6f7bf5ef64d5f95c7d8f7c3bbe0ca5706f45c597469b1cb91343ff06be7cc2"
+  ],
+  "aspectRatio" : "1:1",
+  "model" : "or-gpt-image-mini",
+  "imageCount" : 1,
+  "createdAt" : "2026-07-10T04:40:17Z"
+}

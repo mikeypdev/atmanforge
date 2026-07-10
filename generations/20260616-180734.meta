@@ -1,0 +1,13 @@
+{
+  "referenceHashes" : [
+    "e651846ef19cda58047b3b8b14b230a6c70d64780fad2afdbb446cd59281e73c"
+  ],
+  "aspectRatio" : "1:1",
+  "prompt" : "in the style of a mobile game like Clash of Clans",
+  "parameters" : {
+    "strength" : 0.5
+  },
+  "createdAt" : "2026-06-17T01:07:34Z",
+  "imageCount" : 1,
+  "model" : "or-bytedance-seedream-4-5"
+}

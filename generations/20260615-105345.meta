@@ -1,0 +1,13 @@
+{
+  "prompt" : "make a Skeleton Warrior, mobile game style (like Clash Royale and Royal Match), cute body proportions, chiseled face, front view, white background, 3D rendered look",
+  "aspectRatio" : "1:1",
+  "parameters" : {
+    "prompt_strength" : 0.5
+  },
+  "referenceHashes" : [
+
+  ],
+  "model" : "flux-2-pro",
+  "createdAt" : "2026-06-15T17:53:45Z",
+  "imageCount" : 1
+}

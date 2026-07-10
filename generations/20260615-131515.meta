@@ -1,0 +1,13 @@
+{
+  "prompt" : "Top-down painted illustration of a wildflower patch in grassland, 256×256, square.\n\nArt style: digital painting emulating traditional oil and watercolor techniques, matching a whimsical\nfantasy storybook aesthetic. Soft, diffused lighting with no harsh shadows. Slightly desaturated, harmonious\npalette with subtle canvas grain. Painterly brushwork — small delicate strokes for flowers, broader strokes\nfor surrounding grass. Warm, inviting mood. No outlines, no hard edges, no pixel art, no photorealism.\n\nSubject: a small cluster of wildflowers scattered in grass, seen directly from above. Warm green grass base\n(#7BA05B) with scattered tiny flowers in soft pastel colors — pale yellow, light pink, white, and muted\npurple. The flowers are small accents, not dominant — a smattering of color across the patch, as if\nnaturally seeded. A few slightly taller grass tufts for texture variation. Minimal individual detail; the\npatch reads as an impression of color and texture, not a botanical illustration.\n\nEdges: fade smoothly to full transparency at all borders with a soft, irregular gradient. Organic, amorphous\nshape — no rectangular edge.\n\nBackground: fully transparent (alpha channel). No sky, no horizon, no objects.\ndo not draw text or color values in the image",
+  "model" : "or-gemini-2.5-flash",
+  "imageCount" : 1,
+  "createdAt" : "2026-06-15T20:15:15Z",
+  "aspectRatio" : "1:1",
+  "parameters" : {
+
+  },
+  "referenceHashes" : [
+
+  ]
+}

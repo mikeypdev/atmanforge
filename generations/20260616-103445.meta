@@ -1,0 +1,13 @@
+{
+  "prompt" : "Make this image appear as old parchment paper",
+  "aspectRatio" : "4:3",
+  "imageCount" : 1,
+  "model" : "or-gemini-2.5-flash",
+  "referenceHashes" : [
+    "0c4d6c6689098816ebd2299d0da4905c7d023bff1132bd063534685aba0d3fb8"
+  ],
+  "parameters" : {
+
+  },
+  "createdAt" : "2026-06-16T17:34:45Z"
+}

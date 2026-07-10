@@ -1,0 +1,13 @@
+{
+  "parameters" : {
+
+  },
+  "prompt" : "make the chess tiles bigger and remove the card suits",
+  "aspectRatio" : "1:1",
+  "model" : "or-gemini-2.5-flash",
+  "imageCount" : 1,
+  "referenceHashes" : [
+    "c275ad0cbe59fa1c35dded63eef59dacfdb5adb17887fb5e80453d051f481024"
+  ],
+  "createdAt" : "2026-06-30T19:31:39Z"
+}

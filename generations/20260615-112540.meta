@@ -1,0 +1,13 @@
+{
+  "imageCount" : 1,
+  "aspectRatio" : "1:1",
+  "prompt" : "make a Skeleton Warrior, mobile game style (like Clash Royale and Royal Match), cute body proportions, chiseled face, front view, white background, 3D rendered look",
+  "model" : "or-gemini-2.5-flash",
+  "parameters" : {
+
+  },
+  "referenceHashes" : [
+
+  ],
+  "createdAt" : "2026-06-15T18:25:40Z"
+}

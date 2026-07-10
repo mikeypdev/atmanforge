@@ -1,0 +1,13 @@
+{
+  "aspectRatio" : "1:1",
+  "parameters" : {
+
+  },
+  "prompt" : "expand parchment width, remove quill and ink, remove dragon",
+  "referenceHashes" : [
+    "53c055f912a348faf4578de62b2e5a60248de23d668333bf0df55694a5643b1f"
+  ],
+  "createdAt" : "2026-06-17T18:35:28Z",
+  "model" : "or-gemini-2.5-flash",
+  "imageCount" : 1
+}

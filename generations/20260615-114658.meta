@@ -1,0 +1,13 @@
+{
+  "model" : "remove-background",
+  "prompt" : "",
+  "aspectRatio" : "1:1",
+  "referenceHashes" : [
+    "10272f2e084b472c67c4f7aaec31ff647eee1eb12cd9c0b869f74e51b9d4150f"
+  ],
+  "imageCount" : 1,
+  "parameters" : {
+
+  },
+  "createdAt" : "2026-06-15T18:46:58Z"
+}

@@ -1,0 +1,13 @@
+{
+  "referenceHashes" : [
+
+  ],
+  "aspectRatio" : "1:1",
+  "imageCount" : 1,
+  "prompt" : "Top-down painted illustration of a forest floor, 384×384, square.\n\nArt style: digital painting emulating traditional oil and watercolor techniques, matching a whimsical\nfantasy storybook aesthetic. Soft, diffused lighting with dappled shadows suggesting light filtering through\na canopy above. Slightly desaturated, harmonious palette with subtle canvas grain. Painterly brushwork —\ntextured strokes for undergrowth and earth, smoother blending in shadowed areas. Shadowed, rich, mysterious\nmood. No outlines, no hard edges, no pixel art, no photorealism.\n\nSubject: dense forest floor seen directly from above. Deep green (#3B5E2B) undergrowth as the dominant tone,\nwith dark brown (#4A3728) earth showing through in patches. Dappled light and shadow variation across the\nsurface — brighter green patches where light breaks through, darker recessed areas beneath. Scattered mossy\ntexture, fallen leaves, and small fern fronds as subtle texture variation. The ground feels layered and\norganic — damp earth, roots, low vegetation blending together. Minimal fine detail; read as an impression of\nshadowed forest floor rather than individual plants.\n\nEdges: fade smoothly to full transparency at all borders with a soft, irregular gradient. Organic, amorphous\nshape — no rectangular edge.\n\nBackground: fully transparent (alpha channel). No sky, no horizon, no tree trunks, no standing trees — just\nthe forest floor surface.",
+  "parameters" : {
+
+  },
+  "createdAt" : "2026-06-15T20:48:02Z",
+  "model" : "or-gemini-2.5-flash"
+}

@@ -1,0 +1,14 @@
+{
+  "prompt" : "update aspect ratio to fill 4:3 space",
+  "resolution" : "1K",
+  "model" : "or-gemini-3.1-flash",
+  "referenceHashes" : [
+    "a4ab6b525e3b4fc9e30e96902be855b36a86d6d4eb22afc544fcd379b50b660b"
+  ],
+  "createdAt" : "2026-06-20T17:37:47Z",
+  "aspectRatio" : "4:3",
+  "parameters" : {
+
+  },
+  "imageCount" : 1
+}

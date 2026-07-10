@@ -1,0 +1,14 @@
+{
+  "resolution" : "1K",
+  "model" : "or-gemini-3.1-flash",
+  "parameters" : {
+
+  },
+  "referenceHashes" : [
+    "3d04a1bfb3f554f1c89a8fc1291385463120af6993a0077bf9bfd2f025440dd8"
+  ],
+  "prompt" : "remove the compass and the top and bottom page curls",
+  "aspectRatio" : "1:1",
+  "createdAt" : "2026-06-17T18:37:31Z",
+  "imageCount" : 1
+}

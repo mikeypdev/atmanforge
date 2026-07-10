@@ -1,0 +1,13 @@
+{
+  "createdAt" : "2026-06-16T17:37:36Z",
+  "model" : "or-gemini-2.5-flash",
+  "imageCount" : 1,
+  "parameters" : {
+
+  },
+  "prompt" : "zoom out 2X and have the map reveal 4 times as much terrain",
+  "referenceHashes" : [
+    "2b2f926a675be14ba6da95bc07815deabbabd8d45ca63dbc68cda9e82bb10b2f"
+  ],
+  "aspectRatio" : "4:3"
+}

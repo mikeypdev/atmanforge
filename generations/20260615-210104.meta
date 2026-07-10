@@ -1,0 +1,13 @@
+{
+  "aspectRatio" : "4:3",
+  "imageCount" : 1,
+  "parameters" : {
+
+  },
+  "createdAt" : "2026-06-16T04:01:04Z",
+  "model" : "or-gemini-2.5-flash",
+  "prompt" : "reduce the sizes of the forested and snowy trees by 50%. add a more natural transition between desert and snow.",
+  "referenceHashes" : [
+    "c474b114145e27c0687eb1ac699d311a2e42188614dbccee6f36144ba0761fc5"
+  ]
+}

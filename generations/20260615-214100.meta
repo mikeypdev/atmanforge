@@ -1,0 +1,14 @@
+{
+  "prompt" : "this is a view of a game world. zoom out 2X",
+  "imageCount" : 1,
+  "model" : "or-gpt-image-mini",
+  "parameters" : {
+    "background" : "auto",
+    "quality" : "auto"
+  },
+  "referenceHashes" : [
+    "08f9b0013d4e9146d9e915b0d0e6a7b161977b428aee07a401f7fe3c4d80880c"
+  ],
+  "createdAt" : "2026-06-16T04:41:00Z",
+  "aspectRatio" : "3:2"
+}

@@ -1,0 +1,13 @@
+{
+  "model" : "or-gemini-2.5-flash",
+  "referenceHashes" : [
+    "4904f0476c241786e6f05a5e07ceea7abd8f1eea5483ea5812042a2b86e48188"
+  ],
+  "imageCount" : 1,
+  "prompt" : "reduce the scale of all terrain elements, such as trees and logs so that they are all 1\/3 of their current visual size",
+  "createdAt" : "2026-06-16T17:39:02Z",
+  "aspectRatio" : "4:3",
+  "parameters" : {
+
+  }
+}
