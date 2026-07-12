@@ -17,13 +17,13 @@ class OpenRouterProvider: AIProvider {
         let paramsJSON = buildParamsDebugJSON(for: request)
 
         if request.imageCount <= 1 {
-            let imageData = try await generateSingle(request: request)
+            let result = try await generateSingle(request: request)
             onPredictionCreated("", paramsJSON)
-            return GenerationResult(imageDataArray: imageData)
+            return GenerationResult(imageDataArray: result.images, text: result.text)
         }
 
         // Multiple images: fire requests sequentially with throttle, poll in parallel
-        return await withTaskGroup(of: Result<(Int, [Data]), Error>.self) { group in
+        return await withTaskGroup(of: Result<(Int, [Data], String?), Error>.self) { group in
             for i in 0..<request.imageCount {
                 if i > 0 && parallelDelay > 0 {
                     try? await Task.sleep(nanoseconds: UInt64(parallelDelay * 1_000_000_000))
@@ -31,15 +31,15 @@ class OpenRouterProvider: AIProvider {
                 onPredictionCreated("", paramsJSON)
                 group.addTask { [self] in
                     do {
-                        let images = try await generateSingle(request: request)
-                        return .success((i, images))
+                        let result = try await generateSingle(request: request)
+                        return .success((i, result.images, result.text))
                     } catch {
                         return .failure(error)
                     }
                 }
             }
 
-            var successes: [(Int, [Data])] = []
+            var successes: [(Int, [Data], String?)] = []
             var errors: [String] = []
             for await result in group {
                 switch result {
@@ -52,13 +52,14 @@ class OpenRouterProvider: AIProvider {
             }
             successes.sort { $0.0 < $1.0 }
             let allImageData = successes.flatMap(\.1)
-            return GenerationResult(imageDataArray: allImageData, partialErrors: errors)
+            let responseText = successes.first(where: { $0.2 != nil })?.2
+            return GenerationResult(imageDataArray: allImageData, text: responseText, partialErrors: errors)
         }
     }
 
     // MARK: - Single request
 
-    private func generateSingle(request: GenerationRequest) async throws -> [Data] {
+    private func generateSingle(request: GenerationRequest) async throws -> (images: [Data], text: String?) {
         let body = try buildRequestBody(for: request)
 
         var urlRequest = URLRequest(url: baseURL)
@@ -84,38 +85,73 @@ class OpenRouterProvider: AIProvider {
         }
 
         if images.isEmpty {
-            // Some models might return images embedded differently; check content
             throw OpenRouterError.noOutput
         }
 
-        return images
+        let text = message.content?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (images, (text?.isEmpty == false ? text : nil))
     }
 
     // MARK: - Request building
 
     private func buildRequestBody(for request: GenerationRequest) throws -> Data {
-        // Build content array: text prompt + optional reference images
-        var content: [Any] = [
-            ["type": "text", "text": request.prompt]
-        ]
+        var messages: [[String: Any]] = []
+        var pendingImages: [Data] = []
 
-        // Add reference images as base64 data URLs
-        if !request.referenceImages.isEmpty {
-            for imageData in request.referenceImages {
-                let base64 = imageData.base64EncodedString()
-                let dataURL = "data:image/png;base64,\(base64)"
-                content.append([
-                    "type": "image_url",
-                    "image_url": ["url": dataURL]
+        for msg in request.conversationHistory {
+            switch msg.role {
+            case .assistant:
+                pendingImages = msg.images
+                let text = msg.text ?? "Here is the generated image."
+                messages.append([
+                    "role": "assistant",
+                    "content": [["type": "text", "text": text]]
                 ])
+            case .user:
+                var content: [Any] = []
+                for imageData in pendingImages {
+                    let base64 = imageData.base64EncodedString()
+                    let dataURL = "data:image/png;base64,\(base64)"
+                    content.append([
+                        "type": "image_url",
+                        "image_url": ["url": dataURL]
+                    ])
+                }
+                pendingImages = []
+                if let text = msg.text, !text.isEmpty {
+                    content.append(["type": "text", "text": text])
+                }
+                if content.isEmpty {
+                    content.append(["type": "text", "text": ""])
+                }
+                messages.append(["role": "user", "content": content])
             }
         }
 
+        // Current user message: prior result images + reference images + text prompt
+        var currentContent: [Any] = []
+        for imageData in pendingImages {
+            let base64 = imageData.base64EncodedString()
+            let dataURL = "data:image/png;base64,\(base64)"
+            currentContent.append([
+                "type": "image_url",
+                "image_url": ["url": dataURL]
+            ])
+        }
+        for imageData in request.referenceImages {
+            let base64 = imageData.base64EncodedString()
+            let dataURL = "data:image/png;base64,\(base64)"
+            currentContent.append([
+                "type": "image_url",
+                "image_url": ["url": dataURL]
+            ])
+        }
+        currentContent.append(["type": "text", "text": request.prompt])
+        messages.append(["role": "user", "content": currentContent])
+
         var body: [String: Any] = [
             "model": request.model.replicateModelID,
-            "messages": [
-                ["role": "user", "content": content]
-            ],
+            "messages": messages,
             "stream": false,
         ]
 

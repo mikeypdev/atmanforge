@@ -98,6 +98,18 @@ struct ModelDefinition: Codable, Identifiable, Hashable {
     var supportsResolution: Bool { !resolutions.isEmpty }
     var supportsNativeImageCount: Bool { nativeBatchKey != nil }
 
+    enum ConversationSupport {
+        case full
+        case limited
+        case none
+    }
+
+    var conversationSupport: ConversationSupport {
+        if !isOpenRouter { return .none }
+        if let modalities, modalities == ["image"] { return .limited }
+        return .full
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, displayName, kind, provider
         case replicateModelID

@@ -21,10 +21,13 @@ struct CenterPanelView: View {
         HStack(spacing: 0) {
             tabButton(.activity, label: "Activity", icon: "list.bullet.rectangle")
             tabButton(.library, label: "Library", icon: "photo.on.rectangle.angled")
+            tabButton(.chat, label: "Chat", icon: "bubble.left.and.bubble.right")
 
             Spacer()
 
-            thumbnailScaleSlider
+            if appState.selectedCenterTab != .chat {
+                thumbnailScaleSlider
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -95,6 +98,8 @@ struct CenterPanelView: View {
             ActivityView(thumbnailMaxSize: appState.activityThumbnailSize)
         case .library:
             LibraryView(thumbnailMaxSize: appState.libraryThumbnailSize)
+        case .chat:
+            ChatView()
         }
     }
 

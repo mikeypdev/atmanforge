@@ -19,6 +19,7 @@ enum BackgroundRemovalMethod: String, CaseIterable {
 enum CenterTab: String, CaseIterable {
     case activity
     case library
+    case chat
 }
 
 enum LibrarySortOrder: String, CaseIterable {
@@ -138,6 +139,12 @@ class AppState {
     var imageCount: Int = 1
     var referenceImages: [Data] = []
     var parameterValues: [String: ParameterValue] = [:]
+
+    // MARK: - Chat
+    var conversations: [ChatConversation] = []
+    var activeConversation: ChatConversation?
+    var chatInput: String = ""
+    var isChatGenerating: Bool { activeConversation?.turns.last?.isGenerating ?? false }
 
     // MARK: - Undo/Redo
     var undoStack: [GenerationParamsSnapshot] = []
@@ -823,6 +830,7 @@ class AppState {
         }
         loadActivity()
         loadProjectPreferences()
+        loadConversations()
         updateProjectSize()
     }
 
@@ -834,6 +842,29 @@ class AppState {
     func saveProjectPreferences() {
         guard let root = projectManager.projectsRootURL else { return }
         projectManager.savePreferences(projectPreferences, to: root)
+    }
+
+    func loadConversations() {
+        guard let root = projectManager.projectsRootURL else { return }
+        conversations = projectManager.loadConversations(from: root)
+        for conv in conversations {
+            conv.loadImageData(from: root)
+        }
+    }
+
+    func saveConversations() {
+        guard let root = projectManager.projectsRootURL else { return }
+        var all = conversations
+        if let active = activeConversation, !active.isEmpty, !all.contains(where: { $0.id == active.id }) {
+            all.append(active)
+        }
+        conversations = all.sorted { $0.createdAt > $1.createdAt }
+        projectManager.saveConversations(conversations, to: root)
+    }
+
+    func selectConversation(_ conversation: ChatConversation) {
+        guard !isChatGenerating else { return }
+        activeConversation = conversation
     }
 
     func createProject(name: String) {
@@ -933,6 +964,77 @@ class AppState {
         )
     }
 
+    // MARK: - Chat
+
+    func startNewConversation() {
+        saveConversations()
+        activeConversation = nil
+    }
+
+    private func createNewConversation() {
+        guard let model = selectedModel else { return }
+        activeConversation = ChatConversation(
+            modelID: model.id,
+            aspectRatio: selectedAspectRatio,
+            resolution: model.supportsResolution ? selectedResolution : nil
+        )
+    }
+
+    func sendChatMessage() {
+        let text = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        guard !isChatGenerating else { return }
+
+        if activeConversation == nil {
+            createNewConversation()
+        }
+        guard let conversation = activeConversation else { return }
+        guard let model = ModelRegistry.shared.model(id: conversation.modelID) else {
+            errorMessage = "Unknown model: \(conversation.modelID)"
+            return
+        }
+
+        let history: [ChatHistoryMessage] = conversation.turns.compactMap { turn in
+            if turn.isGenerating { return nil }
+            return ChatHistoryMessage(
+                role: turn.role == .user ? .user : .assistant,
+                text: turn.text,
+                images: turn.images
+            )
+        }
+
+        let isFirstMessage = conversation.turns.isEmpty
+        let refs: [Data] = isFirstMessage ? referenceImages : []
+
+        let userTurn = ChatTurn(role: .user, text: text)
+        let assistantTurn = ChatTurn(role: .assistant, isGenerating: true)
+        conversation.turns.append(userTurn)
+        conversation.turns.append(assistantTurn)
+
+        if conversation.title == "New Conversation" {
+            conversation.title = String(text.prefix(40))
+        }
+
+        chatInput = ""
+
+        var requestParams: [String: ParameterValue] = [:]
+        for spec in model.parameters {
+            requestParams[spec.key] = parameterValues[spec.key] ?? spec.defaultValue
+        }
+
+        runGeneration(
+            prompt: text,
+            model: model,
+            aspectRatio: conversation.aspectRatio,
+            resolution: conversation.resolution,
+            imageCount: imageCount,
+            referenceImages: refs,
+            parameters: requestParams,
+            conversationHistory: history,
+            conversation: conversation
+        )
+    }
+
     private func runGeneration(
         prompt: String,
         model: ModelDefinition,
@@ -940,7 +1042,9 @@ class AppState {
         resolution: ImageResolution?,
         imageCount: Int,
         referenceImages: [Data],
-        parameters: [String: ParameterValue]
+        parameters: [String: ParameterValue],
+        conversationHistory: [ChatHistoryMessage] = [],
+        conversation: ChatConversation? = nil
     ) {
         guard let projectRoot = projectManager.projectsRootURL else {
             errorMessage = "No project folder open."
@@ -988,7 +1092,8 @@ class AppState {
             resolution: resolution,
             imageCount: imageCount,
             referenceImages: referenceImages,
-            parameters: parameters
+            parameters: parameters,
+            conversationHistory: conversationHistory
         )
 
         Task {
@@ -1028,6 +1133,15 @@ class AppState {
                 job.status = .completed
                 imageVersion += 1
 
+                if let conversation, let idx = conversation.turns.lastIndex(where: { $0.role == .assistant && $0.isGenerating }) {
+                    conversation.turns[idx].text = result.text
+                    conversation.turns[idx].images = result.imageDataArray
+                    conversation.turns[idx].savedPaths = saved.imagePaths
+                    conversation.turns[idx].thumbnailPaths = saved.thumbnailPaths
+                    conversation.turns[idx].jobID = job.id
+                    conversation.turns[idx].isGenerating = false
+                }
+
                 // Handle partial failures: create a separate failed job for the errors
                 if !result.partialErrors.isEmpty {
                     let successCount = result.imageDataArray.count
@@ -1060,6 +1174,7 @@ class AppState {
                 }
                 notifyJobCompleted(title: "Image Generated", message: statusMessage)
                 saveActivity()
+                saveConversations()
             } catch {
                 if job.status != .cancelled {
                     job.completedAt = Date()
@@ -1069,8 +1184,13 @@ class AppState {
                     statusMessage = "Generation failed."
                     showToast("Generation failed", icon: "xmark.circle", style: .error)
                     notifyJobCompleted(title: "Generation Failed", message: error.localizedDescription)
+                    if let conversation, let idx = conversation.turns.lastIndex(where: { $0.role == .assistant && $0.isGenerating }) {
+                        conversation.turns[idx].isGenerating = false
+                        conversation.turns[idx].errorMessage = error.localizedDescription
+                    }
                 }
                 saveActivity()
+                saveConversations()
             }
         }
     }

@@ -7,6 +7,10 @@ struct GenerationSidebar: View {
         VStack(alignment: .leading, spacing: 20) {
             AIGenerationPanel()
 
+            if appState.selectedCenterTab == .chat || appState.activeConversation != nil {
+                ConversationList()
+            }
+
             Spacer()
         }
         .padding()

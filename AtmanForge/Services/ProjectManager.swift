@@ -482,6 +482,29 @@ class ProjectManager {
         try? data.write(to: activityURL)
     }
 
+    // MARK: - Conversation Persistence
+
+    @MainActor
+    func loadConversations(from folder: URL) -> [ChatConversation] {
+        let url = folder.appendingPathComponent(".conversations.json")
+        guard fileManager.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url),
+              let persistable = try? decoder.decode([PersistableConversation].self, from: data) else {
+            return []
+        }
+        return persistable.map { fromPersistable($0) }
+    }
+
+    @MainActor
+    func saveConversations(_ conversations: [ChatConversation], to folder: URL) {
+        let url = folder.appendingPathComponent(".conversations.json")
+        let persistable = conversations
+            .filter { !$0.isEmpty }
+            .map { toPersistable($0) }
+        guard let data = try? encoder.encode(persistable) else { return }
+        try? data.write(to: url)
+    }
+
     // MARK: - Project Preferences
 
     func loadPreferences(from folder: URL) -> ProjectPreferences {

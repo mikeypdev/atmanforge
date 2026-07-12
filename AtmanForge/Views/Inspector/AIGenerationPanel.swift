@@ -207,31 +207,33 @@ struct AIGenerationPanel: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Prompt")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if !appState.prompt.isEmpty {
-                        Button {
-                            appState.prompt = ""
-                            appState.commitUndoCheckpoint()
-                        } label: {
-                            Text("Clear")
-                                .font(.caption)
+            if appState.selectedCenterTab != .chat {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Prompt")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if !appState.prompt.isEmpty {
+                            Button {
+                                appState.prompt = ""
+                                appState.commitUndoCheckpoint()
+                            } label: {
+                                Text("Clear")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.accentColor)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(Color.accentColor)
                     }
+                    TextEditor(text: $appState.prompt)
+                        .font(.body)
+                        .frame(minHeight: 60, maxHeight: 120)
+                        .scrollContentBackground(.hidden)
+                        .padding(6)
+                        .background(.background.secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                TextEditor(text: $appState.prompt)
-                    .font(.body)
-                    .frame(minHeight: 60, maxHeight: 120)
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .background(.background.secondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
             HStack {
@@ -296,44 +298,70 @@ struct AIGenerationPanel: View {
                 }
             }
 
-            Button {
-                appState.generateImage()
-            } label: {
-                HStack {
-                    if appState.runningJobCount > 0 {
-                        ProgressView()
-                            .controlSize(.small)
+            if appState.selectedCenterTab != .chat {
+                Button {
+                    appState.generateImage()
+                } label: {
+                    HStack {
+                        if appState.runningJobCount > 0 {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(appState.runningJobCount > 0 ? "Generate (\(appState.runningJobCount) running)" : "Generate")
+                            .frame(maxWidth: .infinity)
                     }
-                    Text(appState.runningJobCount > 0 ? "Generate (\(appState.runningJobCount) running)" : "Generate")
-                        .frame(maxWidth: .infinity)
                 }
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(appState.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(appState.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            if let error = appState.errorMessage {
-                HStack(alignment: .top, spacing: 4) {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .textSelection(.enabled)
-                    Button {
-                        #if os(macOS)
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(error, forType: .string)
-                        #else
-                        UIPasteboard.general.string = error
-                        #endif
-                    } label: {
-                        Image(systemName: "doc.on.doc")
+                if let error = appState.errorMessage {
+                    HStack(alignment: .top, spacing: 4) {
+                        Text(error)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.red)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .textSelection(.enabled)
+                        Button {
+                            #if os(macOS)
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(error, forType: .string)
+                            #else
+                            UIPasteboard.general.string = error
+                            #endif
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Copy error message")
                     }
-                    .buttonStyle(.plain)
-                    .help("Copy error message")
+                }
+            } else {
+                Divider()
+
+                VStack(spacing: 8) {
+                    Label("Chat Active", systemImage: "bubble.left.and.bubble.right")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Text("Type in the chat panel to continue the conversation. Settings above apply to each message.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+
+                    if appState.activeConversation != nil {
+                        Button {
+                            appState.activeConversation = nil
+                        } label: {
+                            Label("New Conversation", systemImage: "plus.bubble")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(appState.isChatGenerating)
+                    }
                 }
             }
         }
