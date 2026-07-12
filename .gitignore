@@ -26,3 +26,9 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
+
+# Generated content
+generations/
+.thumbnails/
+references/
+.activity.json
