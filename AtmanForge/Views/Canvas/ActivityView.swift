@@ -124,7 +124,7 @@ struct ActivityView: View {
                         .fontWeight(.medium)
                     if (job.status == .completed || job.status == .failed || job.status == .cancelled) && hoveredJobID == job.id {
                         Button {
-                            appState.retryJob(job)
+                            appState.retryJob(info: ImageInfo(job: job))
                         } label: {
                             Label("Retry", systemImage: "arrow.clockwise")
                                 .font(.caption2)
@@ -133,7 +133,7 @@ struct ActivityView: View {
                         .foregroundStyle(Color.accentColor)
 
                         Button {
-                            appState.loadSettingsCompatible(from: job)
+                            appState.loadSettingsCompatible(from: ImageInfo(job: job))
                         } label: {
                             Label("Reuse Parameters", systemImage: "doc.text.image")
                                 .font(.caption2)
@@ -218,10 +218,10 @@ struct ActivityView: View {
                             thumbnailImage(
                                 root.appendingPathComponent(thumbPath),
                                 aspectRatio: job.aspectRatio,
-                                isSelected: appState.selectedImageJob?.id == job.id && appState.selectedImageIndex == index,
+                                isSelected: appState.selectedImageInfo?.id == job.id && appState.selectedImageIndex == index,
                                 savedImageURL: savedURL,
                                 onTap: {
-                                    appState.selectImage(job: job, index: index)
+                                    appState.selectImage(ImageInfo(job: job), index: index)
                                 },
                                 onPreview: {
                                     #if os(macOS)
@@ -266,8 +266,8 @@ struct ActivityView: View {
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture {
-            if appState.selectedImageJob?.id != job.id {
-                appState.selectImage(job: job, index: 0)
+            if appState.selectedImageInfo?.id != job.id {
+                appState.selectImage(ImageInfo(job: job), index: 0)
             }
         }
         .background(hoveredJobID == job.id

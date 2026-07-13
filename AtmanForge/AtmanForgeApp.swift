@@ -101,7 +101,7 @@ struct ProjectCommands: Commands {
                 appState.exportSelectedImages()
             }
             .keyboardShortcut("e", modifiers: .command)
-            .disabled(appState.selectedImageJob == nil && appState.selectedLibraryImageIDs.isEmpty)
+            .disabled(appState.selectedImageInfo == nil && appState.selectedLibraryImageIDs.isEmpty)
             #endif
 
             Divider()

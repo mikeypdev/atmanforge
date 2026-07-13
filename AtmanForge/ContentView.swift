@@ -59,7 +59,7 @@ struct ContentView: View {
                 CenterPanelView()
                     .frame(minWidth: 480)
 
-                if appState.selectedImageJob != nil || appState.selectedLibraryImageIDs.count > 1 {
+                if appState.selectedImageInfo != nil || appState.selectedLibraryImageIDs.count > 1 {
                     Divider()
                     ImageInspectorView()
                 }

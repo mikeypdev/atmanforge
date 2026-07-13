@@ -118,8 +118,8 @@ extension View {
 extension AppState {
     var selectedPreviewURL: URL? {
         guard let root = projectManager.projectsRootURL else { return nil }
-        if let job = selectedImageJob, selectedImageIndex < job.savedImagePaths.count {
-            let url = root.appendingPathComponent(job.savedImagePaths[selectedImageIndex])
+        if let info = selectedImageInfo, selectedImageIndex < info.savedImagePaths.count {
+            let url = root.appendingPathComponent(info.savedImagePaths[selectedImageIndex])
             if FileManager.default.fileExists(atPath: url.path) { return url }
         }
         return nil

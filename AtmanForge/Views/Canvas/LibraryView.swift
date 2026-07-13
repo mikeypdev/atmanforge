@@ -28,6 +28,38 @@ struct LibraryImageEntry: Identifiable {
     }
     var createdAt: Date { meta?.createdAt ?? job?.createdAt ?? fileDate }
 
+    @MainActor
+    var imageInfo: ImageInfo {
+        if let meta = meta {
+            return ImageInfo(
+                savedImagePaths: [imagePath],
+                thumbnailPaths: [thumbPath],
+                modelID: meta.modelID,
+                prompt: meta.prompt,
+                aspectRatio: meta.aspectRatio,
+                resolution: meta.resolution,
+                parameters: meta.parameters,
+                createdAt: meta.createdAt,
+                referenceImagePaths: job?.referenceImagePaths ?? [],
+                requestParamsJSON: job?.requestParamsJSON,
+                jobID: job?.id
+            )
+        }
+        if let job = job {
+            return ImageInfo(job: job)
+        }
+        return ImageInfo(
+            savedImagePaths: [imagePath],
+            thumbnailPaths: [thumbPath],
+            modelID: modelID,
+            prompt: prompt,
+            aspectRatio: .r1_1,
+            resolution: nil,
+            parameters: [:],
+            createdAt: fileDate
+        )
+    }
+
     var resolutionString: String {
         guard pixelWidth > 0 && pixelHeight > 0 else { return "—" }
         return "\(pixelWidth)×\(pixelHeight)"

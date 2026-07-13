@@ -79,7 +79,7 @@ class AppState {
     var libraryViewMode: LibraryViewMode = .grid
 
     // MARK: - Image Inspector
-    var selectedImageJob: GenerationJob?
+    var selectedImageInfo: ImageInfo?
     var selectedImageIndex: Int = 0
     var isRemovingBackground = false
     var toasts: [AppToast] = []
@@ -527,13 +527,13 @@ class AppState {
 
     // MARK: - Image Inspector
 
-    func selectImage(job: GenerationJob, index: Int) {
-        selectedImageJob = job
+    func selectImage(_ info: ImageInfo, index: Int) {
+        selectedImageInfo = info
         selectedImageIndex = index
     }
 
     func clearImageSelection() {
-        selectedImageJob = nil
+        selectedImageInfo = nil
         selectedImageIndex = 0
         selectedLibraryImageIDs.removeAll()
     }
@@ -553,9 +553,9 @@ class AppState {
                     imageURLs.append(url)
                 }
             }
-        } else if let job = selectedImageJob, selectedImageIndex < job.savedImagePaths.count {
+        } else if let info = selectedImageInfo, selectedImageIndex < info.savedImagePaths.count {
             // Single selection from inspector
-            let url = root.appendingPathComponent(job.savedImagePaths[selectedImageIndex])
+            let url = root.appendingPathComponent(info.savedImagePaths[selectedImageIndex])
             if FileManager.default.fileExists(atPath: url.path) {
                 imageURLs.append(url)
             }
@@ -612,13 +612,8 @@ class AppState {
     /// Single click: clear set, select one, update inspector
     func selectLibraryImage(_ id: String, entry: LibraryImageEntry) {
         selectedLibraryImageIDs = [id]
-        if let job = entry.job {
-            selectedImageJob = job
-            selectedImageIndex = entry.imageIndex
-        } else {
-            selectedImageJob = nil
-            selectedImageIndex = 0
-        }
+        selectedImageInfo = entry.imageInfo
+        selectedImageIndex = entry.imageIndex
     }
 
     /// Cmd+click: toggle item in selection set
@@ -634,14 +629,12 @@ class AppState {
             // but for now we keep current inspector state or clear if the deselected was the inspected one
             if id == remaining {
                 // We just added this one
-                if let job = entry.job {
-                    selectedImageJob = job
-                    selectedImageIndex = entry.imageIndex
-                }
+                selectedImageInfo = entry.imageInfo
+                selectedImageIndex = entry.imageIndex
             }
         }
         if selectedLibraryImageIDs.isEmpty {
-            selectedImageJob = nil
+            selectedImageInfo = nil
             selectedImageIndex = 0
         }
     }
@@ -668,10 +661,8 @@ class AppState {
 
         // If only one selected, sync inspector
         if selectedLibraryImageIDs.count == 1, let entry = entries.first(where: { selectedLibraryImageIDs.contains($0.id) }) {
-            if let job = entry.job {
-                selectedImageJob = job
-                selectedImageIndex = entry.imageIndex
-            }
+            selectedImageInfo = entry.imageInfo
+            selectedImageIndex = entry.imageIndex
         }
     }
 
@@ -720,8 +711,8 @@ class AppState {
 
         // Clear selection for deleted items
         selectedLibraryImageIDs.subtract(ids)
-        if selectedLibraryImageIDs.isEmpty || selectedImageJob.map({ jobsToRemove.contains($0.id) }) == true {
-            selectedImageJob = nil
+        if selectedLibraryImageIDs.isEmpty || selectedImageInfo.map({ jobsToRemove.contains($0.id) }) == true {
+            selectedImageInfo = nil
             selectedImageIndex = 0
         }
 
@@ -760,22 +751,22 @@ class AppState {
 
     // MARK: - Reuse Settings
 
-    func loadSettings(from job: GenerationJob) {
-        hiddenModels.remove(job.modelID)
-        selectedModelID = job.modelID
+    func loadSettings(from info: ImageInfo) {
+        hiddenModels.remove(info.modelID)
+        selectedModelID = info.modelID
         onModelChanged()
-        prompt = job.prompt
-        selectedAspectRatio = job.aspectRatio
-        if let res = job.resolution {
+        prompt = info.prompt
+        selectedAspectRatio = info.aspectRatio
+        if let res = info.resolution {
             selectedResolution = res
         }
-        imageCount = job.imageCount
-        for (key, value) in job.parameters {
+        imageCount = max(info.savedImagePaths.count, 1)
+        for (key, value) in info.parameters {
             parameterValues[key] = value
         }
-        if let root = projectManager.projectsRootURL, !job.referenceImagePaths.isEmpty {
+        if let root = projectManager.projectsRootURL, !info.referenceImagePaths.isEmpty {
             referenceImages.removeAll()
-            for path in job.referenceImagePaths {
+            for path in info.referenceImagePaths {
                 let url = root.appendingPathComponent(path)
                 if let data = try? Data(contentsOf: url) {
                     referenceImages.append(data)
@@ -785,15 +776,15 @@ class AppState {
         commitUndoCheckpoint()
     }
 
-    func retryJob(_ job: GenerationJob) {
-        guard let model = job.model else {
-            errorMessage = "Unknown model: \(job.modelID)"
+    func retryJob(info: ImageInfo) {
+        guard let model = info.model else {
+            errorMessage = "Unknown model: \(info.modelID)"
             return
         }
 
         var retryReferenceImages: [Data] = []
         if let root = projectManager.projectsRootURL {
-            for path in job.referenceImagePaths {
+            for path in info.referenceImagePaths {
                 let url = root.appendingPathComponent(path)
                 if let data = try? Data(contentsOf: url) {
                     retryReferenceImages.append(data)
@@ -802,18 +793,18 @@ class AppState {
         }
 
         runGeneration(
-            prompt: job.prompt,
+            prompt: info.prompt,
             model: model,
-            aspectRatio: job.aspectRatio,
-            resolution: job.resolution,
-            imageCount: job.imageCount,
+            aspectRatio: info.aspectRatio,
+            resolution: info.resolution,
+            imageCount: max(info.savedImagePaths.count, 1),
             referenceImages: retryReferenceImages,
-            parameters: job.parameters
+            parameters: info.parameters
         )
     }
 
-    func loadSettingsCompatible(from job: GenerationJob) {
-        loadSettings(from: job)
+    func loadSettingsCompatible(from info: ImageInfo) {
+        loadSettings(from: info)
     }
 
     // MARK: - Project Operations
@@ -1216,9 +1207,9 @@ class AppState {
         }
     }
 
-    func removeBackground(job: GenerationJob, imageIndex: Int) {
+    func removeBackground(info: ImageInfo, imageIndex: Int) {
         guard let projectRoot = projectManager.projectsRootURL else { return }
-        guard imageIndex < job.savedImagePaths.count else { return }
+        guard imageIndex < info.savedImagePaths.count else { return }
 
         let method = backgroundRemovalMethod
 
@@ -1235,7 +1226,7 @@ class AppState {
             }
         }
 
-        let imagePath = job.savedImagePaths[imageIndex]
+        let imagePath = info.savedImagePaths[imageIndex]
         let imageURL = projectRoot.appendingPathComponent(imagePath)
         guard let imageData = try? Data(contentsOf: imageURL) else {
             errorMessage = "Could not read image file."
@@ -1250,7 +1241,7 @@ class AppState {
             modelID: modelID,
             prompt: "",
             projectID: projectRoot.lastPathComponent,
-            aspectRatio: job.aspectRatio,
+            aspectRatio: info.aspectRatio,
             resolution: nil,
             imageCount: 1,
             parameters: [:]
@@ -1309,7 +1300,7 @@ class AppState {
                 bgJob.completedAt = Date()
                 bgJob.status = .completed
 
-                selectImage(job: bgJob, index: 0)
+                selectImage(ImageInfo(job: bgJob), index: 0)
                 imageVersion += 1
                 statusMessage = "Background removed"
                 isRemovingBackground = false
@@ -1332,7 +1323,7 @@ class AppState {
 
     func removeJob(_ job: GenerationJob) {
         generationJobs.removeAll { $0.id == job.id }
-        if selectedImageJob?.id == job.id {
+        if selectedImageInfo?.id == job.id {
             clearImageSelection()
         }
         saveActivity()

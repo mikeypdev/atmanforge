@@ -114,8 +114,8 @@ struct ImageInspectorView: View {
     @State private var comparisonViewID: UUID = UUID()
     @State private var showRequestDetails: Bool = false
 
-    private var job: GenerationJob? {
-        appState.selectedImageJob
+    private var info: ImageInfo? {
+        appState.selectedImageInfo
     }
 
     private var imageIndex: Int {
@@ -134,16 +134,16 @@ struct ImageInspectorView: View {
         Group {
             if isMultiSelection {
                 multiSelectionView
-            } else if let job = job {
+            } else if let info = info {
                 VStack(spacing: 0) {
                     header
                     Divider()
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            comparisonImageView(job)
-                            referenceImageThumbnails(job)
-                            metadataSection(job)
-                            if showRequestDetails, let params = job.requestParamsJSON, !params.isEmpty {
+                            comparisonImageView(info)
+                            referenceImageThumbnails(info)
+                            metadataSection(info)
+                            if showRequestDetails, let params = info.requestParamsJSON, !params.isEmpty {
                                 ScrollView(.vertical) {
                                     Text(params)
                                         .font(.system(.caption, design: .monospaced))
@@ -156,7 +156,7 @@ struct ImageInspectorView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                             Spacer()
-                            actionButtons(job)
+                            actionButtons(info)
                         }
                         .padding(16)
                     }
@@ -168,7 +168,7 @@ struct ImageInspectorView: View {
                 #else
                 .background(Color(uiColor: .systemBackground))
                 #endif
-                .onChange(of: appState.selectedImageJob?.id) { _, _ in
+                .onChange(of: appState.selectedImageInfo?.id) { _, _ in
                     selectedReferenceIndex = 0
                     comparisonActive = false
                     comparisonViewID = UUID()
@@ -278,7 +278,7 @@ struct ImageInspectorView: View {
             HStack(spacing: 6) {
                 Text("Inspector")
                     .font(.headline)
-                if let params = appState.selectedImageJob?.requestParamsJSON, !params.isEmpty {
+                if let params = appState.selectedImageInfo?.requestParamsJSON, !params.isEmpty {
                     Button {
                         showRequestDetails.toggle()
                     } label: {
@@ -304,20 +304,20 @@ struct ImageInspectorView: View {
     }
 
     @ViewBuilder
-    private func comparisonImageView(_ job: GenerationJob) -> some View {
-        if job.referenceImagePaths.isEmpty || job.model?.kind == .backgroundRemoval {
-            fullImage(job)
+    private func comparisonImageView(_ info: ImageInfo) -> some View {
+        if info.referenceImagePaths.isEmpty || info.model?.kind == .backgroundRemoval {
+            fullImage(info)
         } else {
-            comparisonSlider(job)
+            comparisonSlider(info)
         }
     }
 
     @ViewBuilder
-    private func comparisonSlider(_ job: GenerationJob) -> some View {
-        if imageIndex < job.savedImagePaths.count, let root = projectRoot {
-            let generatedURL = root.appendingPathComponent(job.savedImagePaths[imageIndex])
-            let safeRefIndex = min(selectedReferenceIndex, job.referenceImagePaths.count - 1)
-            let referenceURL = root.appendingPathComponent(job.referenceImagePaths[max(0, safeRefIndex)])
+    private func comparisonSlider(_ info: ImageInfo) -> some View {
+        if imageIndex < info.savedImagePaths.count, let root = projectRoot {
+            let generatedURL = root.appendingPathComponent(info.savedImagePaths[imageIndex])
+            let safeRefIndex = min(selectedReferenceIndex, info.referenceImagePaths.count - 1)
+            let referenceURL = root.appendingPathComponent(info.referenceImagePaths[max(0, safeRefIndex)])
 
             ComparisonOverlayView(
                 referenceURL: referenceURL,
@@ -333,8 +333,8 @@ struct ImageInspectorView: View {
     }
 
     @ViewBuilder
-    private func referenceImageThumbnails(_ job: GenerationJob) -> some View {
-        if !job.referenceImagePaths.isEmpty {
+    private func referenceImageThumbnails(_ info: ImageInfo) -> some View {
+        if !info.referenceImagePaths.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Reference Images")
@@ -354,7 +354,7 @@ struct ImageInspectorView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(Array(job.referenceImagePaths.enumerated()), id: \.offset) { index, path in
+                        ForEach(Array(info.referenceImagePaths.enumerated()), id: \.offset) { index, path in
                             if let root = projectRoot {
                                 let url = root.appendingPathComponent(path)
                                 referenceThumbnail(url: url, isSelected: index == selectedReferenceIndex)
@@ -413,9 +413,9 @@ struct ImageInspectorView: View {
     }
 
     @ViewBuilder
-    private func fullImage(_ job: GenerationJob) -> some View {
-        if imageIndex < job.savedImagePaths.count, let root = projectRoot {
-            let imageURL = root.appendingPathComponent(job.savedImagePaths[imageIndex])
+    private func fullImage(_ info: ImageInfo) -> some View {
+        if imageIndex < info.savedImagePaths.count, let root = projectRoot {
+            let imageURL = root.appendingPathComponent(info.savedImagePaths[imageIndex])
             #if os(macOS)
             if let nsImage = NSImage(contentsOf: imageURL) {
                 Image(nsImage: nsImage)
@@ -523,17 +523,17 @@ struct ImageInspectorView: View {
         }
     }
 
-    private func metadataSection(_ job: GenerationJob) -> some View {
+    private func metadataSection(_ info: ImageInfo) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Details")
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
-            metadataRow("Model", value: job.displayName)
-            metadataRow("Aspect Ratio", value: job.aspectRatio.displayName)
+            metadataRow("Model", value: info.displayName)
+            metadataRow("Aspect Ratio", value: info.aspectRatio.displayName)
 
-            if imageIndex < job.savedImagePaths.count, let root = projectRoot {
-                let imageURL = root.appendingPathComponent(job.savedImagePaths[imageIndex])
+            if imageIndex < info.savedImagePaths.count, let root = projectRoot {
+                let imageURL = root.appendingPathComponent(info.savedImagePaths[imageIndex])
                 if let dimensions = imageSize(url: imageURL) {
                     metadataRow("Resolution", value: "\(dimensions.width) × \(dimensions.height)")
                 }
@@ -542,7 +542,7 @@ struct ImageInspectorView: View {
                 }
             }
 
-            metadataRow("Created", value: formattedDate(job.createdAt))
+            metadataRow("Created", value: formattedDate(info.createdAt))
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -553,9 +553,9 @@ struct ImageInspectorView: View {
                     Button {
                         #if os(macOS)
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(job.prompt, forType: .string)
+                        NSPasteboard.general.setString(info.prompt, forType: .string)
                         #else
-                        UIPasteboard.general.string = job.prompt
+                        UIPasteboard.general.string = info.prompt
                         #endif
                         appState.showToast("Prompt copied", icon: "doc.on.doc")
                     } label: {
@@ -566,7 +566,7 @@ struct ImageInspectorView: View {
                     .buttonStyle(.plain)
                     .help("Copy prompt")
                 }
-                Text(job.prompt)
+                Text(info.prompt)
                     .font(.caption)
                     .textSelection(.enabled)
             }
@@ -585,14 +585,14 @@ struct ImageInspectorView: View {
         }
     }
 
-    private func actionButtons(_ job: GenerationJob) -> some View {
+    private func actionButtons(_ info: ImageInfo) -> some View {
         VStack(spacing: 8) {
             Divider()
 
             VStack(spacing: 6) {
                 Button {
-                    guard imageIndex < job.savedImagePaths.count, let root = projectRoot else { return }
-                    let imageURL = root.appendingPathComponent(job.savedImagePaths[imageIndex])
+                    guard imageIndex < info.savedImagePaths.count, let root = projectRoot else { return }
+                    let imageURL = root.appendingPathComponent(info.savedImagePaths[imageIndex])
                     guard let data = try? Data(contentsOf: imageURL) else { return }
                     appState.prompt = ""
                     appState.referenceImages.removeAll()
@@ -606,7 +606,7 @@ struct ImageInspectorView: View {
                 .controlSize(.regular)
 
                 Button {
-                    appState.removeBackground(job: job, imageIndex: imageIndex)
+                    appState.removeBackground(info: info, imageIndex: imageIndex)
                 } label: {
                     HStack {
                         if appState.isRemovingBackground {
@@ -619,10 +619,10 @@ struct ImageInspectorView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
-                .disabled(appState.isRemovingBackground || job.model?.kind == .backgroundRemoval)
+                .disabled(appState.isRemovingBackground || info.model?.kind == .backgroundRemoval)
 
                 Button {
-                    appState.retryJob(job)
+                    appState.retryJob(info: info)
                 } label: {
                     Label("Retry", systemImage: "arrow.counterclockwise")
                         .frame(maxWidth: .infinity)
@@ -631,7 +631,7 @@ struct ImageInspectorView: View {
                 .controlSize(.regular)
 
                 Button {
-                    appState.loadSettingsCompatible(from: job)
+                    appState.loadSettingsCompatible(from: info)
                 } label: {
                     Label("Reuse Parameters", systemImage: "doc.text.image")
                         .frame(maxWidth: .infinity)
@@ -641,8 +641,8 @@ struct ImageInspectorView: View {
 
                 #if os(macOS)
                 Button {
-                    guard imageIndex < job.savedImagePaths.count, let root = projectRoot else { return }
-                    let imageURL = root.appendingPathComponent(job.savedImagePaths[imageIndex])
+                    guard imageIndex < info.savedImagePaths.count, let root = projectRoot else { return }
+                    let imageURL = root.appendingPathComponent(info.savedImagePaths[imageIndex])
                     QuickLookController.shared.preview(url: imageURL)
                 } label: {
                     Label("Preview", systemImage: "eye")
@@ -661,8 +661,8 @@ struct ImageInspectorView: View {
                 .controlSize(.regular)
 
                 Button {
-                    guard imageIndex < job.savedImagePaths.count, let root = projectRoot else { return }
-                    let imageURL = root.appendingPathComponent(job.savedImagePaths[imageIndex])
+                    guard imageIndex < info.savedImagePaths.count, let root = projectRoot else { return }
+                    let imageURL = root.appendingPathComponent(info.savedImagePaths[imageIndex])
                     NSWorkspace.shared.activateFileViewerSelecting([imageURL])
                 } label: {
                     Label("Show in Finder", systemImage: "folder")
