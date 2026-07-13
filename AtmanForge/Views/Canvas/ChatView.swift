@@ -78,7 +78,7 @@ private struct ChatConversationView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(conversation.turns) { turn in
-                        ChatTurnView(turn: turn)
+                        ChatTurnView(turn: turn, conversation: conversation)
                             .id(turn.id)
                     }
                 }
@@ -131,6 +131,7 @@ private struct ChatConversationView: View {
 private struct ChatTurnView: View {
     @Environment(AppState.self) private var appState
     let turn: ChatTurn
+    let conversation: ChatConversation
 
     private var projectRoot: URL? {
         appState.projectManager.projectsRootURL
@@ -245,7 +246,7 @@ private struct ChatTurnView: View {
             ForEach(Array(turn.savedPaths.enumerated()), id: \.offset) { index, path in
                 if let root = projectRoot {
                     let imageURL = root.appendingPathComponent(path)
-                    ChatImageView(imageURL: imageURL, jobID: turn.jobID, imageIndex: index)
+                    ChatImageView(imageURL: imageURL, turn: turn, conversation: conversation, imageIndex: index)
                 }
             }
         }
@@ -257,7 +258,8 @@ private struct ChatTurnView: View {
 private struct ChatImageView: View {
     @Environment(AppState.self) private var appState
     let imageURL: URL
-    let jobID: UUID?
+    let turn: ChatTurn
+    let conversation: ChatConversation
     let imageIndex: Int
 
     #if os(macOS)
@@ -336,10 +338,21 @@ private struct ChatImageView: View {
     }
 
     private func openInInspector() {
-        guard let jobID else { return }
-        if let job = appState.generationJobs.first(where: { $0.id == jobID }) {
-            appState.selectedImageJob = job
-            appState.selectedImageIndex = imageIndex
+        if let jobID = turn.jobID, let job = appState.generationJobs.first(where: { $0.id == jobID }) {
+            appState.selectImage(ImageInfo(job: job), index: imageIndex)
+        } else {
+            let info = ImageInfo(
+                savedImagePaths: turn.savedPaths,
+                thumbnailPaths: turn.thumbnailPaths,
+                modelID: conversation.modelID,
+                prompt: turn.text ?? "",
+                aspectRatio: conversation.aspectRatio,
+                resolution: conversation.resolution,
+                parameters: [:],
+                createdAt: turn.timestamp,
+                jobID: turn.jobID
+            )
+            appState.selectImage(info, index: imageIndex)
         }
     }
 
