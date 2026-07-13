@@ -179,6 +179,9 @@ private struct ChatTurnView: View {
                     if !turn.savedPaths.isEmpty {
                         imageGrid
                     }
+                    if let info = generationInfo {
+                        generationInfoView(info)
+                    }
                 }
             }
             Spacer(minLength: 40)
@@ -218,6 +221,21 @@ private struct ChatTurnView: View {
         .padding(.vertical, 8)
         .background(Color.red.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var generationInfo: String? {
+        turn.settingsSummary
+    }
+
+    private func generationInfoView(_ info: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 9))
+            Text(info)
+                .font(.system(size: 10))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 4)
     }
 
     private var imageGrid: some View {
