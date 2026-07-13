@@ -66,6 +66,7 @@ struct ChatTurn: Identifiable {
     var savedPaths: [String]
     var thumbnailPaths: [String]
     var jobID: UUID?
+    var settingsSummary: String?
     var isGenerating: Bool
     var errorMessage: String?
     var timestamp: Date
@@ -82,6 +83,7 @@ struct ChatTurn: Identifiable {
         savedPaths: [String] = [],
         thumbnailPaths: [String] = [],
         jobID: UUID? = nil,
+        settingsSummary: String? = nil,
         isGenerating: Bool = false,
         errorMessage: String? = nil
     ) {
@@ -92,6 +94,7 @@ struct ChatTurn: Identifiable {
         self.savedPaths = savedPaths
         self.thumbnailPaths = thumbnailPaths
         self.jobID = jobID
+        self.settingsSummary = settingsSummary
         self.isGenerating = isGenerating
         self.errorMessage = errorMessage
         self.timestamp = Date()
@@ -115,6 +118,7 @@ struct PersistableTurn: Codable {
     let savedPaths: [String]
     let thumbnailPaths: [String]
     let jobID: UUID?
+    let settingsSummary: String?
     let timestamp: Date
 }
 
@@ -139,6 +143,7 @@ func toPersistable(_ turn: ChatTurn) -> PersistableTurn {
         savedPaths: turn.savedPaths,
         thumbnailPaths: turn.thumbnailPaths,
         jobID: turn.jobID,
+        settingsSummary: turn.settingsSummary,
         timestamp: turn.timestamp
     )
 }
@@ -162,7 +167,8 @@ func fromPersistable(_ p: PersistableTurn) -> ChatTurn {
         text: p.text,
         savedPaths: p.savedPaths,
         thumbnailPaths: p.thumbnailPaths,
-        jobID: p.jobID
+        jobID: p.jobID,
+        settingsSummary: p.settingsSummary
     )
     turn.id = p.id
     turn.timestamp = p.timestamp

@@ -1139,6 +1139,7 @@ class AppState {
                     conversation.turns[idx].savedPaths = saved.imagePaths
                     conversation.turns[idx].thumbnailPaths = saved.thumbnailPaths
                     conversation.turns[idx].jobID = job.id
+                    conversation.turns[idx].settingsSummary = "\(job.displayName) · \(job.settingsSummary)"
                     conversation.turns[idx].isGenerating = false
                 }
 
