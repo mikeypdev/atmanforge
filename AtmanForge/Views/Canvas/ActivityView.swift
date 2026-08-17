@@ -6,7 +6,6 @@ import AppKit
 struct ActivityView: View {
     @Environment(AppState.self) private var appState
     var thumbnailMaxSize: CGFloat = 64
-    @State private var hoveredJobID: UUID?
     @State private var expandedJobs: Set<UUID> = []
 
     private var projectRoot: URL? {
@@ -48,31 +47,26 @@ struct ActivityView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(appState.generationJobs) { job in
-                    jobRow(job)
-                        .onHover { isHovered in
-                            hoveredJobID = isHovered ? job.id : nil
-                        }
-                        .contextMenu {
-                            if let error = job.errorMessage, job.status == .failed {
-                                Button {
-                                    copyToClipboard(error)
-                                } label: {
-                                    Label("Copy Error", systemImage: "doc.on.doc")
-                                }
-                                Divider()
-                            }
-                            Button(role: .destructive) {
-                                appState.removeJob(job)
-                            } label: {
-                                Label("Remove", systemImage: "trash")
+                    ActivityRowView(
+                        job: job,
+                        thumbnailMaxSize: thumbnailMaxSize,
+                        projectRoot: projectRoot,
+                        isExpanded: expandedJobs.contains(job.id),
+                        onToggleExpanded: {
+                            if expandedJobs.contains(job.id) {
+                                expandedJobs.remove(job.id)
+                            } else {
+                                expandedJobs.insert(job.id)
                             }
                         }
+                    )
                     if expandedJobs.contains(job.id), let params = job.requestParamsJSON, !params.isEmpty {
                         requestDetailsRow(job: job)
                     }
                     Divider()
                 }
             }
+            .animation(.easeInOut(duration: 0.2), value: expandedJobs)
         }
     }
 
@@ -101,7 +95,22 @@ struct ActivityView: View {
         }
     }
 
-    private func jobRow(_ job: GenerationJob) -> some View {
+}
+
+/// Standalone row so hover state invalidates a single row instead of the whole
+/// activity list, and rows whose inputs are unchanged can be skipped entirely
+/// when the parent re-renders (new jobs, progress ticks, expansion toggles).
+struct ActivityRowView: View {
+    @Environment(AppState.self) private var appState
+    let job: GenerationJob
+    let thumbnailMaxSize: CGFloat
+    let projectRoot: URL?
+    let isExpanded: Bool
+    var onToggleExpanded: (() -> Void)?
+
+    @State private var isHovered = false
+
+    var body: some View {
         HStack(alignment: .top, spacing: 10) {
             // Status icon or spinner
             Group {
@@ -122,7 +131,7 @@ struct ActivityView: View {
                     Text(job.displayName)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                    if (job.status == .completed || job.status == .failed || job.status == .cancelled) && hoveredJobID == job.id {
+                    if (job.status == .completed || job.status == .failed || job.status == .cancelled) && isHovered {
                         Button {
                             appState.retryJob(info: ImageInfo(job: job))
                         } label: {
@@ -144,11 +153,7 @@ struct ActivityView: View {
                         #if DEBUG
                         if let params = job.requestParamsJSON, !params.isEmpty {
                             Button {
-                                if expandedJobs.contains(job.id) {
-                                    expandedJobs.remove(job.id)
-                                } else {
-                                    expandedJobs.insert(job.id)
-                                }
+                                onToggleExpanded?()
                             } label: {
                                 Label("Show Request", systemImage: "doc.text.magnifyingglass")
                                     .font(.caption2)
@@ -205,7 +210,7 @@ struct ActivityView: View {
                         }
                         .buttonStyle(.plain)
                         .help("Copy prompt")
-                        .opacity(hoveredJobID == job.id ? 1 : 0)
+                        .opacity(isHovered ? 1 : 0)
                     }
                 }
 
@@ -259,7 +264,6 @@ struct ActivityView: View {
                         .help("Copy error message")
                     }
                 }
-
             }
         }
         .padding(.horizontal, 16)
@@ -270,11 +274,27 @@ struct ActivityView: View {
                 appState.selectImage(ImageInfo(job: job), index: 0)
             }
         }
-        .background(hoveredJobID == job.id
-            ? Color.primary.opacity(0.06)
-            : (job.status == .running ? Color.accentColor.opacity(0.05) : Color.clear)
+        .onHover { isHovered = $0 }
+        .background(
+            isHovered
+                ? Color.primary.opacity(0.06)
+                : (job.status == .running ? Color.accentColor.opacity(0.05) : Color.clear)
         )
-        .animation(.easeInOut(duration: 0.2), value: expandedJobs)
+        .contextMenu {
+            if let error = job.errorMessage, job.status == .failed {
+                Button {
+                    copyToClipboard(error)
+                } label: {
+                    Label("Copy Error", systemImage: "doc.on.doc")
+                }
+                Divider()
+            }
+            Button(role: .destructive) {
+                appState.removeJob(job)
+            } label: {
+                Label("Remove", systemImage: "trash")
+            }
+        }
     }
 
     private func elapsedTimeView(job: GenerationJob) -> some View {
@@ -354,30 +374,62 @@ struct ThumbnailHoverView: View {
     var multiSelectedImageURLs: [URL]?
 
     @State private var isHovered = false
+    #if os(macOS)
+    @State private var loadedImage: NSImage?
+    #else
+    @State private var loadedImage: UIImage?
+    #endif
+    @State private var loadFailed = false
 
     var body: some View {
-        #if os(macOS)
-        if let nsImage = ThumbnailCache.shared.image(for: url) {
-            imageContent(nsImage)
-                .contextMenu { contextMenuItems }
-                .onDrag {
-                    guard let fileURL = savedImageURL else { return NSItemProvider() }
-                    return NSItemProvider(contentsOf: fileURL) ?? NSItemProvider()
-                }
+        Group {
+            #if os(macOS)
+            if let nsImage = ThumbnailCache.shared.cachedImage(for: url) ?? loadedImage {
+                imageContent(nsImage)
+                    .contextMenu { contextMenuItems }
+                    .onDrag {
+                        guard let fileURL = savedImageURL else { return NSItemProvider() }
+                        return NSItemProvider(contentsOf: fileURL) ?? NSItemProvider()
+                    }
+            } else if loadFailed {
+                Color.clear.frame(width: width, height: height)
+            } else {
+                placeholderThumb
+            }
+            #else
+            if let uiImage = ThumbnailCache.shared.cachedImage(for: url) ?? loadedImage {
+                imageContent(Image(uiImage: uiImage))
+                    .onTapGesture(count: 2) {
+                        onPreview?()
+                    }
+                    .contextMenu { contextMenuItems }
+                    .onDrag {
+                        guard let fileURL = savedImageURL else { return NSItemProvider() }
+                        return NSItemProvider(contentsOf: fileURL) ?? NSItemProvider()
+                    }
+            } else if loadFailed {
+                Color.clear.frame(width: width, height: height)
+            } else {
+                placeholderThumb
+            }
+            #endif
         }
-        #else
-        if let uiImage = ThumbnailCache.shared.image(for: url) {
-            imageContent(Image(uiImage: uiImage))
-                .onTapGesture(count: 2) {
-                    onPreview?()
-                }
-                .contextMenu { contextMenuItems }
-                .onDrag {
-                    guard let fileURL = savedImageURL else { return NSItemProvider() }
-                    return NSItemProvider(contentsOf: fileURL) ?? NSItemProvider()
-                }
+        .task(id: url) {
+            if ThumbnailCache.shared.cachedImage(for: url) != nil { return }
+            loadedImage = nil
+            loadFailed = false
+            if let image = await ThumbnailCache.shared.imageAsync(for: url) {
+                loadedImage = image
+            } else {
+                loadFailed = true
+            }
         }
-        #endif
+    }
+
+    private var placeholderThumb: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Color.secondary.opacity(0.2))
+            .frame(width: width, height: height)
     }
 
     private var isMultiSelected: Bool {
@@ -605,26 +657,38 @@ class HoverZoomNSView: NSView {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
+    /// Caches subview sizes and the computed rows so sizeThatFits and
+    /// placeSubviews share a single measurement pass per layout instead of
+    /// re-measuring every subview in both passes.
+    struct Cache {
+        var width: CGFloat = .nan
+        var subviewCount: Int = -1
+        var sizes: [CGSize] = []
+        var rows: [[Int]] = []
+    }
+
+    func makeCache(subviews: Subviews) -> Cache { Cache() }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        updateCacheIfNeeded(proposal: proposal, subviews: subviews, cache: &cache)
         var height: CGFloat = 0
-        for (i, row) in rows.enumerated() {
-            let rowHeight = row.map { subviews[$0].sizeThatFits(.unspecified).height }.max() ?? 0
+        for (i, row) in cache.rows.enumerated() {
+            let rowHeight = row.map { cache.sizes[$0].height }.max() ?? 0
             height += rowHeight
             if i > 0 { height += spacing }
         }
         return CGSize(width: proposal.width ?? 0, height: height)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = computeRows(proposal: proposal, subviews: subviews)
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        updateCacheIfNeeded(proposal: proposal, subviews: subviews, cache: &cache)
         var y = bounds.minY
-        for (i, row) in rows.enumerated() {
+        for (i, row) in cache.rows.enumerated() {
             if i > 0 { y += spacing }
-            let rowHeight = row.map { subviews[$0].sizeThatFits(.unspecified).height }.max() ?? 0
+            let rowHeight = row.map { cache.sizes[$0].height }.max() ?? 0
             var x = bounds.minX
             for index in row {
-                let size = subviews[index].sizeThatFits(.unspecified)
+                let size = cache.sizes[index]
                 subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
                 x += size.width + spacing
             }
@@ -632,20 +696,24 @@ struct FlowLayout: Layout {
         }
     }
 
-    private func computeRows(proposal: ProposedViewSize, subviews: Subviews) -> [[Int]] {
-        let maxWidth = proposal.width ?? .infinity
+    private func updateCacheIfNeeded(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let width = proposal.width ?? .infinity
+        guard width != cache.width || subviews.count != cache.subviewCount else { return }
+
+        cache.width = width
+        cache.subviewCount = subviews.count
+        cache.sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+
         var rows: [[Int]] = [[]]
         var currentWidth: CGFloat = 0
-
-        for (index, subview) in subviews.enumerated() {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentWidth + size.width > maxWidth && !rows[rows.count - 1].isEmpty {
+        for (index, size) in cache.sizes.enumerated() {
+            if currentWidth + size.width > width && !rows[rows.count - 1].isEmpty {
                 rows.append([])
                 currentWidth = 0
             }
             rows[rows.count - 1].append(index)
             currentWidth += size.width + spacing
         }
-        return rows
+        cache.rows = rows
     }
 }

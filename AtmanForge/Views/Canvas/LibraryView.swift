@@ -1,7 +1,7 @@
 import SwiftUI
+import ImageIO
 #if os(macOS)
 import AppKit
-import ImageIO
 #endif
 
 // MARK: - Cached metadata per library image
@@ -76,6 +76,25 @@ struct LibraryImageEntry: Identifiable {
     }
 }
 
+/// Boxes per-file metadata for NSCache so periodic rescans skip re-reading
+/// image headers for files that haven't changed.
+final class LibraryFileMeta: @unchecked Sendable {
+    let fileSize: UInt64
+    let pixelWidth: Int
+    let pixelHeight: Int
+    let fileDate: Date
+
+    init(fileSize: UInt64, pixelWidth: Int, pixelHeight: Int, fileDate: Date) {
+        self.fileSize = fileSize
+        self.pixelWidth = pixelWidth
+        self.pixelHeight = pixelHeight
+        self.fileDate = fileDate
+    }
+}
+
+/// File-scope (nonisolated) so background scans can use it; NSCache is thread-safe.
+private let libraryFileMetaCache = NSCache<NSString, LibraryFileMeta>()
+
 struct LibraryView: View {
     @Environment(AppState.self) private var appState
     var thumbnailMaxSize: CGFloat = 96
@@ -85,15 +104,31 @@ struct LibraryView: View {
 
     // MARK: - Build entries from disk + .meta files
 
-    private var allEntries: [LibraryImageEntry] {
-        guard let root = projectRoot else { return [] }
-        let generationsDir = root.appendingPathComponent("generations")
-        let fm = FileManager.default
+    @State private var entries: [LibraryImageEntry] = []
+    @State private var hasLoadedOnce = false
+    @State private var scanTask: Task<Void, Never>?
 
-        guard let files = try? fm.contentsOfDirectory(atPath: generationsDir.path) else { return [] }
-        let pngFiles = files.filter { $0.hasSuffix(".png") }.sorted()
+    /// Changes whenever the entries list should be rebuilt: project root,
+    /// sort settings, or job state (new images, deletions).
+    private var refreshKey: String {
+        let jobsSignature = appState.generationJobs
+            .map { "\($0.id.uuidString):\($0.savedImagePaths.count):\($0.status == .completed)" }
+            .joined(separator: ",")
+        return "\(projectRoot?.path ?? "")|\(appState.librarySortOrder)|\(appState.librarySortAscending)|\(jobsSignature)"
+    }
 
-        // Build a lookup from image path → (job, index) for selection support
+    /// Scans the generations folder on a background queue and replaces the
+    /// displayed entries, keeping the main thread free during long lists.
+    private func refreshEntries() {
+        scanTask?.cancel()
+        guard let root = projectRoot else {
+            entries = []
+            hasLoadedOnce = true
+            return
+        }
+
+        // Snapshot the job lookup on the main actor; the background scan only
+        // stores the references and reads nothing from them.
         var jobLookup: [String: (GenerationJob, Int)] = [:]
         for job in appState.generationJobs where job.status == .completed {
             for (index, path) in job.savedImagePaths.enumerated() {
@@ -101,91 +136,122 @@ struct LibraryView: View {
             }
         }
 
-        let entries: [LibraryImageEntry] = pngFiles.compactMap { fileName in
-            let relativePath = "generations/\(fileName)"
-            let fileURL = generationsDir.appendingPathComponent(fileName)
-
-            // Read metadata from .meta file (cached)
-            let meta = appState.projectManager.cachedMeta(forGenerationFile: fileName, inFolder: root)
-
-            // File size
-            let attrs = try? fm.attributesOfItem(atPath: fileURL.path)
-            let fileSize = attrs?[.size] as? UInt64 ?? 0
-
-            // Pixel dimensions via CGImageSource (lightweight, no full decode)
-            var pw = 0
-            var ph = 0
-            if let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
-               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] {
-                pw = props[kCGImagePropertyPixelWidth] as? Int ?? 0
-                ph = props[kCGImagePropertyPixelHeight] as? Int ?? 0
-            }
-
-            let thumbPath = ".thumbnails/\(fileName)"
-
-            // Find matching job for selection
-            let match = jobLookup[relativePath]
-
-            let fileDate = attrs?[.modificationDate] as? Date ?? Date()
-
-            return LibraryImageEntry(
-                id: fileName,
-                imagePath: relativePath,
-                thumbPath: thumbPath,
-                fileName: fileName,
-                fileSize: fileSize,
-                pixelWidth: pw,
-                pixelHeight: ph,
-                meta: meta,
-                job: match?.0,
-                imageIndex: match?.1 ?? 0,
-                fileDate: fileDate
-            )
-        }
-
-        return sortedEntries(entries)
-    }
-
-    private func sortedEntries(_ entries: [LibraryImageEntry]) -> [LibraryImageEntry] {
+        let projectManager = appState.projectManager
+        let order = appState.librarySortOrder
         let ascending = appState.librarySortAscending
 
-        let sorted: [LibraryImageEntry]
-        switch appState.librarySortOrder {
+        scanTask = Task { @MainActor in
+            let scanned = await Self.scanEntries(root: root, jobLookup: jobLookup, projectManager: projectManager)
+            guard !Task.isCancelled else { return }
+            entries = Self.sortedEntries(scanned, order: order, ascending: ascending)
+            hasLoadedOnce = true
+        }
+    }
+
+    private static func scanEntries(
+        root: URL,
+        jobLookup: [String: (GenerationJob, Int)],
+        projectManager: ProjectManager
+    ) async -> [LibraryImageEntry] {
+        await Task.detached(priority: .userInitiated) { () -> [LibraryImageEntry] in
+            let generationsDir = root.appendingPathComponent("generations")
+            let fm = FileManager.default
+
+            guard let files = try? fm.contentsOfDirectory(atPath: generationsDir.path) else { return [] }
+            let pngFiles = files.filter { $0.hasSuffix(".png") }
+
+            var results: [LibraryImageEntry] = []
+            results.reserveCapacity(pngFiles.count)
+
+            for fileName in pngFiles {
+                let relativePath = "generations/\(fileName)"
+                let fileURL = generationsDir.appendingPathComponent(fileName)
+
+                let attrs = try? fm.attributesOfItem(atPath: fileURL.path)
+                let fileDate = attrs?[.modificationDate] as? Date ?? Date()
+                let mtime = fileDate.timeIntervalSince1970
+
+                // Pixel dimensions via CGImageSource (header-only, no full decode),
+                // cached per file + mtime
+                var fileSize = attrs?[.size] as? UInt64 ?? 0
+                var pixelWidth = 0
+                var pixelHeight = 0
+                let cacheKey = "\(fileName)|\(mtime)" as NSString
+                if let meta = libraryFileMetaCache.object(forKey: cacheKey) {
+                    fileSize = meta.fileSize
+                    pixelWidth = meta.pixelWidth
+                    pixelHeight = meta.pixelHeight
+                } else {
+                    if let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+                       let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] {
+                        pixelWidth = props[kCGImagePropertyPixelWidth] as? Int ?? 0
+                        pixelHeight = props[kCGImagePropertyPixelHeight] as? Int ?? 0
+                    }
+                    libraryFileMetaCache.setObject(
+                        LibraryFileMeta(fileSize: fileSize, pixelWidth: pixelWidth, pixelHeight: pixelHeight, fileDate: fileDate),
+                        forKey: cacheKey
+                    )
+                }
+
+                let match = jobLookup[relativePath]
+
+                results.append(LibraryImageEntry(
+                    id: fileName,
+                    imagePath: relativePath,
+                    thumbPath: ".thumbnails/\(fileName)",
+                    fileName: fileName,
+                    fileSize: fileSize,
+                    pixelWidth: pixelWidth,
+                    pixelHeight: pixelHeight,
+                    meta: projectManager.cachedMeta(forGenerationFile: fileName, inFolder: root),
+                    job: match?.0,
+                    imageIndex: match?.1 ?? 0,
+                    fileDate: fileDate
+                ))
+            }
+            return results
+        }.value
+    }
+
+    @MainActor
+    private static func sortedEntries(
+        _ entries: [LibraryImageEntry],
+        order: LibrarySortOrder,
+        ascending: Bool
+    ) -> [LibraryImageEntry] {
+        switch order {
         case .dateAdded:
-            sorted = entries.sorted {
-                ascending
-                    ? $0.createdAt < $1.createdAt
-                    : $0.createdAt > $1.createdAt
+            return entries.sorted {
+                ascending ? $0.createdAt < $1.createdAt : $0.createdAt > $1.createdAt
             }
         case .name:
-            sorted = entries.sorted {
+            return entries.sorted {
                 let cmp = $0.fileName.localizedStandardCompare($1.fileName)
                 return ascending ? cmp == .orderedAscending : cmp == .orderedDescending
             }
         case .model:
-            sorted = entries.sorted {
+            return entries.sorted {
                 let cmp = $0.modelDisplayName.localizedStandardCompare($1.modelDisplayName)
                 return ascending ? cmp == .orderedAscending : cmp == .orderedDescending
             }
         case .resolution:
-            sorted = entries.sorted {
+            return entries.sorted {
                 let areaA = $0.pixelWidth * $0.pixelHeight
                 let areaB = $1.pixelWidth * $1.pixelHeight
                 return ascending ? areaA < areaB : areaA > areaB
             }
         case .size:
-            sorted = entries.sorted {
+            return entries.sorted {
                 ascending ? $0.fileSize < $1.fileSize : $0.fileSize > $1.fileSize
             }
         }
-        return sorted
     }
 
     // MARK: - Body
 
     var body: some View {
         VStack(spacing: 0) {
-            if !allEntries.isEmpty {
+            if !entries.isEmpty {
                 if appState.libraryViewMode == .grid {
                     gridHeaderBar
                 } else {
@@ -195,7 +261,7 @@ struct LibraryView: View {
             }
 
             Group {
-                if allEntries.isEmpty {
+                if entries.isEmpty && hasLoadedOnce {
                     emptyState
                 } else if appState.libraryViewMode == .grid {
                     imageGrid
@@ -204,6 +270,17 @@ struct LibraryView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .task(id: refreshKey) {
+            refreshEntries()
+        }
+        .task {
+            // Periodic revalidation picks up external changes (Finder, another window)
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard !Task.isCancelled else { break }
+                refreshEntries()
+            }
         }
         #if os(macOS)
         .background(Color(nsColor: .windowBackgroundColor))
@@ -397,8 +474,7 @@ struct LibraryView: View {
     // MARK: - Grid View
 
     private var imageGrid: some View {
-        let entries = allEntries
-        return ScrollView {
+        ScrollView {
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: thumbnailMaxSize), spacing: 8)],
                 spacing: 8
@@ -492,8 +568,7 @@ struct LibraryView: View {
     // MARK: - List View
 
     private var imageList: some View {
-        let entries = allEntries
-        return ScrollView {
+        ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(entries) { entry in
                     if let root = projectRoot {
@@ -603,44 +678,24 @@ struct LibraryView: View {
     }
 
     private func listThumbnail(url: URL, savedImageURL: URL?) -> some View {
-        Group {
-            #if os(macOS)
-            if let nsImage = ThumbnailCache.shared.image(for: url) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .onHover { isHovered in
-                        updateHoveredPreviewURL(isHovered: isHovered, previewURL: savedImageURL)
-                    }
-            } else {
-                placeholderThumb
+        CachedThumbnail(
+            url: url,
+            width: 48,
+            height: 48,
+            onHover: { isHovered in
+                updateHoveredPreviewURL(isHovered: isHovered, previewURL: savedImageURL)
             }
-            #else
-            if let uiImage = ThumbnailCache.shared.image(for: url) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            } else {
-                placeholderThumb
-            }
-            #endif
-        }
+        )
     }
 
-    private var placeholderThumb: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(Color.secondary.opacity(0.2))
-            .frame(width: 48, height: 48)
-    }
-
-    private func dateLabel(for date: Date) -> String {
+    private static let dateLabelFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        return formatter
+    }()
+
+    private func dateLabel(for date: Date) -> String {
+        Self.dateLabelFormatter.localizedString(for: date, relativeTo: Date())
     }
 
     @ViewBuilder

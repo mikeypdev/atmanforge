@@ -11,19 +11,26 @@ class ProjectManager {
 
     private let fileManager = FileManager.default
     private var metaCache: [String: ImageMeta] = [:]
+    private let metaCacheLock = NSLock()
 
     /// Returns cached ImageMeta for a generation file, reading from the companion .meta file on first access.
     /// The key is the base timestamp (e.g. "20250127-143052") derived from filenames like "20250127-143052.png" or "20250127-143052-2.png".
+    /// Thread-safe: may be called from background library scans.
     func cachedMeta(forGenerationFile fileName: String, inFolder folder: URL) -> ImageMeta? {
         let base = metaBaseName(from: fileName)
-        if let cached = metaCache[base] { return cached }
+        metaCacheLock.lock()
+        let cached = metaCache[base]
+        metaCacheLock.unlock()
+        if let cached { return cached }
 
         let metaURL = folder.appendingPathComponent("generations/\(base).meta")
         guard let data = try? Data(contentsOf: metaURL) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let meta = try? decoder.decode(ImageMeta.self, from: data) else { return nil }
+        metaCacheLock.lock()
         metaCache[base] = meta
+        metaCacheLock.unlock()
         return meta
     }
 
@@ -561,7 +568,9 @@ class ProjectManager {
 
             if !siblingExists {
                 try? fileManager.removeItem(at: metaURL)
+                metaCacheLock.lock()
                 metaCache.removeValue(forKey: baseName)
+                metaCacheLock.unlock()
             }
         }
     }
