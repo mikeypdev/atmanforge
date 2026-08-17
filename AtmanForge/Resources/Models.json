@@ -188,21 +188,6 @@
       "parameters": []
     },
     {
-      "id": "or-gemini-3.1-flash",
-      "displayName": "Gemini 3.1 Flash",
-      "kind": "generation",
-      "provider": "openrouter",
-      "replicateModelID": "google/gemini-3.1-flash-image-preview",
-      "aspectRatios": ["1:8", "1:4", "9:16", "2:3", "3:4", "4:5", "1:1", "5:4", "4:3", "3:2", "16:9", "21:9", "4:1", "8:1"],
-      "resolutions": ["1K", "2K", "4K"],
-      "maxImages": 4,
-      "nativeBatchKey": null,
-      "maxReferenceImages": 14,
-      "referenceKey": { "name": "image_input", "kind": "array" },
-      "staticInputs": {},
-      "parameters": []
-    },
-    {
       "id": "or-gemini-3-pro",
       "displayName": "Gemini 3 Pro",
       "kind": "generation",
