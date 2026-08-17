@@ -32,3 +32,4 @@ generations/
 .thumbnails/
 references/
 .activity.json
+.conversations.json
